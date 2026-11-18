@@ -190,6 +190,19 @@ slide("table", "23-28", "Los datos",
       ], num_cols=(1,))
       + "<p class='note'>El generador (<code>data/gen_data.py</code>) usa una semilla fija: siempre produce los mismos archivos, y por eso los resultados se pueden comprobar.</p>")
 
+slide("", "", "El proyecto en el workspace",
+      "Todo el proyecto cabe en una carpeta: 14 notebooks numerados y un dashboard",
+      "<div class='shot par'><img src='assets/ui-notebooks.png' alt='Carpeta taller-portafolio-datos en el workspace de Databricks con los notebooks 00 a 09, 98, 99, run_all, utilities y el dashboard'>"
+      + ul("El número del nombre es el orden de ejecución: <code>00</code> prepara el catálogo, <code>01</code> a <code>09</code> construyen las capas",
+           "<code>utilities</code> guarda los nombres compartidos; todos lo cargan con <code>%run</code>",
+           "<code>98</code> valida, <code>99</code> deja todo en cero y <code>run_all</code> lo ejecuta completo")
+      + "</div>")
+
+slide("", "", "Dónde están los datos",
+      "Los CSV llegan a un Volume, que en Azure es un contenedor de Data Lake",
+      "<div class='shot dos'><img src='assets/ui-volume.png' alt='El Volume raw en el Explorador de catálogos de Databricks, carpeta initial/orders/processed con el archivo orders_batch.csv'><img src='assets/ui-adls.png' alt='El mismo almacenamiento en el portal de Azure: contenedor fmcg con la ruta administrada por Unity Catalog'>"
+      + "</div><p class='note'>A la izquierda, el Volume en Databricks; a la derecha, el mismo almacenamiento en el portal de Azure. Unity Catalog administra las rutas: por eso en Azure se ven identificadores largos. El archivo está en <code>processed/</code> porque Bronze ya lo cargó.</p>")
+
 slide("", "28-40", "Demo · notebooks 00 y 01",
       "Bronze guarda lo que llegó, tal cual, y anota de qué archivo vino cada fila" + mk("volumes"),
       "<div class='code-wrap'>" + code('''
@@ -223,6 +236,14 @@ slide("table", "40-48", "Demo · notebooks 02 a 04",
       ], num_cols=(1, 2))
       + "<p class='note'><strong>Con Claude:</strong> adaptó las transformaciones y agregó los conteos de control. Qué hacer con un dato malo (corregirlo, marcarlo o descartarlo) lo decide negocio; en el portafolio, cada regla debe poder explicarse en una frase. <code>product_code</code> es una huella del nombre: el mismo producto recibe siempre el mismo código.</p>",
       "En 02 mostrar el display de ciudades antes y después del diccionario. En 04 remarcar: sin el precio único, el join con la fact duplicaría ventas.")
+
+slide("", "", "Demo · notebook 02",
+      "El diccionario reduce catorce formas de escribir la ciudad a tres ciudades válidas",
+      "<div class='shot par'><img src='assets/nb-silver-ciudad.png' alt='Notebook 02 ejecutado: el diccionario de ciudades y el conteo resultante con Bengaluru, Hyderabad, New Delhi y nulos'>"
+      + ul("El diccionario corrige las variantes conocidas: mayúsculas, espacios y errores de tipeo",
+           "La lista permitida convierte en nulo todo lo que no sea una ciudad válida",
+           "Después, cuatro clientes reciben la ciudad que confirmó negocio y el resto queda como «Sin ciudad»")
+      + "</div>")
 
 slide("", "48-55", "Demo · notebook 05",
       "La tabla de órdenes reúne los cuatro problemas clásicos de cualquier fuente transaccional",
@@ -274,6 +295,11 @@ LEFT JOIN fmcg.gold.dim_pricing p
 ''')
       + "<p class='note'>El precio se busca por producto y por mes de la orden. Todas las líneas encontraron precio: 0 nulos.</p>")
 
+slide("", "", "El catálogo",
+      "El catálogo queda con tres esquemas y las tablas de cada capa",
+      "<div class='shot solo'><img src='assets/ui-catalogo.png' alt='Explorador de catálogos: esquemas bronze, silver y gold del catálogo fmcg con cinco tablas cada uno'>"
+      + "</div><p class='note'>Captura tomada al final del pipeline: <code>staging_orders</code> aparece en Bronze y en Silver porque es la tabla de paso del lote incremental. Sin esas dos, son las 13 tablas del proyecto.</p>")
+
 slide("", "75-83", "Demo · notebook 08",
       "MERGE resuelve la carga incremental: actualiza lo que cambió e inserta lo nuevo" + mk("merge"),
       "<div class='shot par'><img src='assets/nb-merge.png' alt='Notebook 08 ejecutado: la función merge_fact y su salida, fact antes 4.511, después 4.786, insertadas 275, actualizadas 20'>" + table(["Lote incremental", "Filas"], [
@@ -301,6 +327,15 @@ slide("", "90-97", "Demo · notebook 09",
       + ul(f"Versión 0, la carga inicial: {n(f0['rows'])} filas y US$ {n(f0['revenue'], 2)}", f"Actual, tras el MERGE: {n(f1['rows'])} filas y US$ {n(f1['revenue'], 2)}", "<code>OPTIMIZE</code> junta archivos pequeños; <code>ZORDER</code> los ordena por la columna que más se filtra",
                       "Cada escritura crea una versión: el historial, que ya viste en el notebook <code>08</code>, dice qué operación la creó y cuántas filas tocó") + "</div>")
 
+slide("", "", "Linaje",
+      "Unity Catalog registra solo de dónde viene cada tabla y quién la usa",
+      "<div class='shot par'><img src='assets/ui-linaje.png' alt='Pestaña Linaje de fact_sales: tablas de origen, notebooks y el job que la leen o la escriben'>"
+      + ul("Ascendente: de qué tablas y notebooks sale <code>fact_sales</code>",
+           "Descendente: qué notebooks, jobs y dashboards la consumen",
+           "Nadie lo documentó a mano: se arma con cada ejecución",
+           "Es lo primero que se mira antes de cambiar una tabla")
+      + "</div>")
+
 slide("", "97-103", "Demo · dashboard",
       "El dashboard cierra el ciclo: la tabla Gold responde las preguntas del negocio" + mk("dashboards"),
       "<div class='shot'><img src='assets/dashboard.png' alt='Dashboard FMCG · Ventas (Gold) con revenue total, unidades, órdenes, top 10 productos y revenue por categoría'>"
@@ -322,6 +357,12 @@ slide("table", "103-108", "Orquestación",
           ["Cierre", "<code>t09_optimize</code> · <code>t98_validacion</code>", "<code>09</code> · <code>98</code>"],
       ])
       + "<p class='note'>Tiempos medidos el 17 de noviembre: 3 min 34 s en un cluster de nodo único (Standard_D4ds_v7, 4 núcleos) y unos 8 min en serverless, incluido el reset. Con <code>99_reset_demo</code> todo vuelve al punto de partida para ensayar otra vez.</p>")
+
+slide("", "", "Orquestación",
+      "La corrida completa: 16 tareas en verde, cada una espera a la anterior",
+      "<div class='shot par'><img src='assets/ui-corrida.png' alt='Ejecución del job fmcg-medallion-pipeline en vista de lista: 16 tareas satisfactorias con su duración y la tarea de la que dependen'>"
+      + ul("16 tareas, todas satisfactorias, en 3 minutos y 38 segundos", "«Depende de» encadena las tareas: si una falla, las siguientes no corren", "Una ejecución fallida se repara desde la tarea que falló, sin repetir las anteriores", "Cada tarea guarda el notebook ejecutado con sus salidas")
+      + "</div>")
 
 slide("table", "108-112", "Lo que falló",
       "Lo que no salió a la primera también va al portafolio",
@@ -373,7 +414,7 @@ slide("hero", "119-120", "Tu siguiente paso",
       + "<p class='note'>Gracias por sumarte a la Navidad de los niños de Carabayllo. Aporte solidario: Yape 967 048 578 (Junior Candela) · paypal.me/leandrojt</p>")
 
 # ---------- render ----------
-TIEMPOS = ['0-3', '3-5', '5-8', '8-10', '10-13', '13-16', '16-20', '20-23', '23-26', '26-28', '28-31', '31-42', '42-54', '54-62', '62-69', '69-74', '74-83', '83-87', '87-93', '93-98', '98-102', '102-106', '106-109', '109-113', '113-116', '116-120']
+TIEMPOS = ['0-3', '3-5', '5-8', '8-10', '10-13', '13-16', '16-20', '20-23', '23-26', '26-28', '28-30', '30-31', '31-32', '32-42', '42-50', '50-54', '54-62', '62-69', '69-73', '73-74', '74-83', '83-87', '87-92', '92-93', '93-98', '98-101', '101-102', '102-106', '106-109', '109-113', '113-116', '116-120']
 assert len(TIEMPOS) == len(S), len(S)
 S = [(c, TIEMPOS[i], k, t, b, nt) for i, (c, _, k, t, b, nt) in enumerate(S)]
 total = len(S)

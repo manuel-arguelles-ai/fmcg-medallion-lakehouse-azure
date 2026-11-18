@@ -222,11 +222,15 @@ td .ic,.note .ic{width:2.05em;height:2.05em;vertical-align:-.7em;padding:.14em;b
 .shot img{display:block;width:100%;max-height:60vh;object-fit:contain;border:1px solid var(--line);border-radius:12px;background:#fff}
 .shot.par{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
 .shot.par img{max-height:52vh}
+.shot.solo{grid-template-columns:1fr}
+.shot.solo img{max-height:54vh}
+.shot.dos{grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);align-items:start}
+.shot.dos img{max-height:46vh}
 .shot table{display:block;max-width:100%;overflow-x:auto}
 .shot table{font-size:clamp(.75rem,1.2vw,1rem)}
 .shot ul{font-size:clamp(.8rem,1.3vw,1.05rem)}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-@media (max-width:820px){.flow,.flow.cuatro,.flow.cinco,.kpis,.kpis.tres,.shot,.shot.par{grid-template-columns:1fr}}
+@media (max-width:820px){.flow,.flow.cuatro,.flow.cinco,.kpis,.kpis.tres,.shot,.shot.par,.shot.dos{grid-template-columns:1fr}}
 body.tema-claro .note a,body.tema-claro .slide a{color:var(--accent2)}
 body.tema-claro .note a:hover,body.tema-claro .slide a:hover{color:var(--accent)}
 @media (max-width:820px){td code{word-break:normal;overflow-wrap:anywhere}}
