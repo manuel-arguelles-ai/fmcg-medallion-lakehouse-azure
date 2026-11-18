@@ -276,18 +276,7 @@ LEFT JOIN fmcg.gold.dim_pricing p
 
 slide("", "75-83", "Demo · notebook 08",
       "MERGE resuelve la carga incremental: actualiza lo que cambió e inserta lo nuevo" + mk("merge"),
-      "<div class='code-wrap'>" + code('''
-(DeltaTable.forName(spark, fact_table).alias("t")
-  .merge(df_fact_new.alias("s"),
-         "t.order_id = s.order_id AND t.date = s.date "
-         "AND t.customer_code = s.customer_code "
-         "AND t.product_code = s.product_code")
-  .whenMatchedUpdateAll(condition=
-     "NOT (t.quantity <=> s.quantity AND "
-     "t.price <=> s.price AND t.revenue <=> s.revenue)")
-  .whenNotMatchedInsertAll()
-  .execute())
-''') + table(["Lote incremental", "Filas"], [
+      "<div class='shot par'><img src='assets/nb-merge.png' alt='Notebook 08 ejecutado: la función merge_fact y su salida, fact antes 4.511, después 4.786, insertadas 275, actualizadas 20'>" + table(["Lote incremental", "Filas"], [
           ["Llegan en el archivo", "330"],
           ["Válidas después de Silver", n(mg["staging_rows"])],
           ["Insertadas (órdenes nuevas)", f"<strong>{mg['ins']}</strong>"],
@@ -299,31 +288,18 @@ slide("", "75-83", "Demo · notebook 08",
 
 slide("", "83-90", "Demo · notebook 08",
       "Correrlo dos veces no cambia nada: 0 insertadas y 0 actualizadas",
-      kpis([(f"{mg['ins']} + {mg['upd']}", "primera corrida: insertadas + actualizadas"),
-            ("0 + 0", "segunda corrida, con el mismo lote"),
-            (n(f1["rows"]), "filas en <code>fact_sales</code> antes y después de repetir")], "tres")
+      "<div class='shot par'><img src='assets/nb-idempotencia.png' alt='Notebook 08 ejecutado: segunda corrida con 0 insertadas y 0 actualizadas, y el historial Delta con las tres versiones de fact_sales'>"
       + ul("Los jobs fallan a medias y se reintentan: una carga que duplica en el reintento termina inflando las ventas",
            "Idempotente significa que repetir la operación deja el mismo resultado",
            "Aquí la garantizan la llave completa y la condición del MERGE; además, el archivo ya procesado pasa a <code>processed/</code> y no vuelve a entrar")
+      + "</div>"
       + "<p class='note'>Si alguien te pregunta en una entrevista qué pasa si tu pipeline corre dos veces, esta es la demostración.</p>")
 
 slide("", "90-97", "Demo · notebook 09",
       "La tabla se compacta y, aun así, puedes volver a cualquier versión anterior" + mk("optimize", "history"),
-      "<div class='code-wrap'>" + code('''
-OPTIMIZE fmcg.gold.fact_sales ZORDER BY (product_id);
-
-SELECT 'versión 0 (full load)' AS momento,
-       COUNT(*) AS filas, round(SUM(revenue), 2) AS revenue_usd
-FROM fmcg.gold.fact_sales VERSION AS OF 0
-UNION ALL
-SELECT 'actual', COUNT(*), round(SUM(revenue), 2)
-FROM fmcg.gold.fact_sales;
-''') + table(["Momento", "Filas", "Revenue (US$)"], [
-          ["Versión 0 · carga inicial", n(f0["rows"]), n(f0["revenue"], 2)],
-          ["Actual · tras el MERGE", n(f1["rows"]), n(f1["revenue"], 2)],
-      ], num_cols=(1, 2))
-      + "</div>" + ul("<code>OPTIMIZE</code> junta archivos pequeños; <code>ZORDER</code> los ordena por la columna que más se filtra",
-                      "Cada escritura crea una versión: el historial, que ya viste en el notebook <code>08</code>, dice qué operación la creó y cuántas filas tocó"))
+      "<div class='shot par'><img src='assets/nb-timetravel.png' alt='Notebook 09 ejecutado: consulta con VERSION AS OF 0 y su resultado, 4.511 filas en la versión 0 y 4.786 en la actual'>"
+      + ul(f"Versión 0, la carga inicial: {n(f0['rows'])} filas y US$ {n(f0['revenue'], 2)}", f"Actual, tras el MERGE: {n(f1['rows'])} filas y US$ {n(f1['revenue'], 2)}", "<code>OPTIMIZE</code> junta archivos pequeños; <code>ZORDER</code> los ordena por la columna que más se filtra",
+                      "Cada escritura crea una versión: el historial, que ya viste en el notebook <code>08</code>, dice qué operación la creó y cuántas filas tocó") + "</div>")
 
 slide("", "97-103", "Demo · dashboard",
       "El dashboard cierra el ciclo: la tabla Gold responde las preguntas del negocio" + mk("dashboards"),
