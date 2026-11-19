@@ -28,8 +28,8 @@ else:
 
 # COMMAND ----------
 # MAGIC %sql
-# MAGIC -- IF NOT EXISTS permite ejecutar la celda muchas veces sin error
 # MAGIC -- QUÉ HACE: crea un esquema por capa, más el de llegada de archivos
+# MAGIC -- IF NOT EXISTS permite ejecutar la celda muchas veces sin error
 # MAGIC CREATE SCHEMA IF NOT EXISTS fmcg.bronze;
 # MAGIC CREATE SCHEMA IF NOT EXISTS fmcg.silver;
 # MAGIC CREATE SCHEMA IF NOT EXISTS fmcg.gold;
@@ -42,8 +42,8 @@ else:
 
 # COMMAND ----------
 # MAGIC %sql
-# MAGIC -- reemplaza al bucket S3 del proyecto original
 # MAGIC -- QUÉ HACE: crea la carpeta administrada donde se suben los CSV
+# MAGIC -- reemplaza al bucket S3 del proyecto original
 # MAGIC CREATE VOLUME IF NOT EXISTS fmcg.landing.raw;
 
 # COMMAND ----------
@@ -55,7 +55,6 @@ else:
 # MAGIC %md
 # MAGIC Subida de archivos (una sola vez, desde la UI o CLI):
 # MAGIC ```
-# MAGIC databricks fs cp data/landing/initial/customers/*.csv \
-# MAGIC   dbfs:/Volumes/fmcg/landing/raw/initial/customers/ --recursive
+# MAGIC databricks fs cp -r data/landing dbfs:/Volumes/fmcg/landing/raw
 # MAGIC ```
-# MAGIC En el taller los CSV ya están subidos off-line: el en vivo solo los lee.
+# MAGIC Cada CSV debe quedar en `raw/<initial|incremental>/<fuente>/landing/`. En el taller los archivos ya están subidos: en vivo solo se leen.

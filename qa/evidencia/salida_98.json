@@ -1,0 +1,97 @@
+{
+ "bronze.customers": 196,
+ "bronze.products": 66,
+ "bronze.gross_price": 312,
+ "bronze.orders": 5380,
+ "silver.customers": 184,
+ "silver.products": 60,
+ "silver.gross_price": 288,
+ "silver.orders": 4786,
+ "gold.dim_date": 365,
+ "gold.dim_customers": 185,
+ "gold.dim_products": 60,
+ "gold.dim_pricing": 288,
+ "gold.fact_sales": 4786,
+ "cities": {
+  "Sin ciudad": 15,
+  "Bengaluru": 48,
+  "New Delhi": 51,
+  "Hyderabad": 70
+ },
+ "categories": {
+  "Recovery Dairy": 12,
+  "Energy Bars": 9,
+  "Healthy Snacks": 11,
+  "Electrolyte Mix": 8,
+  "Granola & Cereals": 9,
+  "Protein Bars": 11
+ },
+ "products_999999": 12,
+ "orders_cust_999999": 230,
+ "orders_null_dates": 0,
+ "orders_min_max": [
+  "2026-01-01",
+  "2026-06-15"
+ ],
+ "fact_now": {
+  "rows": 4786,
+  "units": 97986,
+  "revenue": 684393.99,
+  "null_price": 0,
+  "orders": 4786
+ },
+ "fact_v0": {
+  "rows": 4511,
+  "units": 92491,
+  "revenue": 648109.79
+ },
+ "history": [
+  {
+   "v": 3,
+   "op": "OPTIMIZE",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 2,
+   "op": "MERGE",
+   "ins": "0",
+   "upd": "0"
+  },
+  {
+   "v": 1,
+   "op": "MERGE",
+   "ins": "275",
+   "upd": "20"
+  },
+  {
+   "v": 0,
+   "op": "CREATE OR REPLACE TABLE AS SELECT",
+   "ins": null,
+   "upd": null
+  }
+ ],
+ "by_category": {
+  "Recovery Dairy": 168404.36,
+  "Energy Bars": 99029.07,
+  "Healthy Snacks": 77905.63,
+  "Electrolyte Mix": 92450.01,
+  "Granola & Cereals": 82248.28,
+  "Protein Bars": 164356.64
+ },
+ "by_month": {
+  "2026-06": 35667.5,
+  "2026-02": 122936.29,
+  "2026-03": 138641.13,
+  "2026-05": 128821.44,
+  "2026-04": 127435.37,
+  "2026-01": 130892.26
+ },
+ "fact_orphans": {
+  "customer": 0,
+  "product": 0,
+  "date": 0
+ },
+ "fact_dup_keys": 0,
+ "dim_products_dup_code": 0
+}

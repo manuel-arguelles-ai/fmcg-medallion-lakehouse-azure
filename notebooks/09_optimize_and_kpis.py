@@ -6,8 +6,8 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- ZORDER acelera los filtros por product_id
 # MAGIC -- QUÉ HACE: compacta los archivos de la tabla y los ordena por producto
+# MAGIC -- ZORDER acelera los filtros por product_id
 # MAGIC OPTIMIZE fmcg.gold.fact_sales ZORDER BY (product_id);
 
 # COMMAND ----------

@@ -1,0 +1,338 @@
+{
+ "datasets": [
+  {
+   "name": "d_kpis",
+   "displayName": "KPI 1 · Totales",
+   "queryLines": [
+    "SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity) AS total_units, COUNT(DISTINCT order_id) AS orders\n",
+    "FROM fmcg.gold.fact_sales"
+   ]
+  },
+  {
+   "name": "d_top",
+   "displayName": "KPI 2 · Top 10 productos",
+   "queryLines": [
+    "SELECT dp.product, dp.category, round(SUM(f.revenue), 2) AS revenue_usd\n",
+    "FROM fmcg.gold.fact_sales f\n",
+    "JOIN fmcg.gold.dim_products dp ON f.product_code = dp.product_code\n",
+    "GROUP BY dp.product, dp.category\n",
+    "ORDER BY revenue_usd DESC LIMIT 10"
+   ]
+  },
+  {
+   "name": "d_cat",
+   "displayName": "KPI 3 · Categorías",
+   "queryLines": [
+    "SELECT dp.category, round(SUM(f.revenue), 2) AS revenue_usd, SUM(f.quantity) AS units\n",
+    "FROM fmcg.gold.fact_sales f\n",
+    "JOIN fmcg.gold.dim_products dp ON f.product_code = dp.product_code\n",
+    "GROUP BY dp.category"
+   ]
+  },
+  {
+   "name": "d_mes",
+   "displayName": "KPI 4 · Tendencia mensual",
+   "queryLines": [
+    "SELECT date_trunc('MONTH', date) AS month, round(SUM(revenue), 2) AS revenue_usd\n",
+    "FROM fmcg.gold.fact_sales GROUP BY 1"
+   ]
+  }
+ ],
+ "pages": [
+  {
+   "name": "p1",
+   "displayName": "Ventas",
+   "layout": [
+    {
+     "widget": {
+      "name": "k1",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_kpis",
+         "fields": [
+          {
+           "name": "revenue_usd",
+           "expression": "`revenue_usd`"
+          }
+         ],
+         "disaggregated": true
+        }
+       }
+      ],
+      "spec": {
+       "version": 2,
+       "widgetType": "counter",
+       "encodings": {
+        "value": {
+         "fieldName": "revenue_usd",
+         "displayName": "Revenue total (USD)"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Revenue total (USD)"
+       }
+      }
+     },
+     "position": {
+      "x": 0,
+      "y": 0,
+      "width": 2,
+      "height": 3
+     }
+    },
+    {
+     "widget": {
+      "name": "k2",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_kpis",
+         "fields": [
+          {
+           "name": "total_units",
+           "expression": "`total_units`"
+          }
+         ],
+         "disaggregated": true
+        }
+       }
+      ],
+      "spec": {
+       "version": 2,
+       "widgetType": "counter",
+       "encodings": {
+        "value": {
+         "fieldName": "total_units",
+         "displayName": "Unidades vendidas"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Unidades vendidas"
+       }
+      }
+     },
+     "position": {
+      "x": 2,
+      "y": 0,
+      "width": 2,
+      "height": 3
+     }
+    },
+    {
+     "widget": {
+      "name": "k3",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_kpis",
+         "fields": [
+          {
+           "name": "orders",
+           "expression": "`orders`"
+          }
+         ],
+         "disaggregated": true
+        }
+       }
+      ],
+      "spec": {
+       "version": 2,
+       "widgetType": "counter",
+       "encodings": {
+        "value": {
+         "fieldName": "orders",
+         "displayName": "Órdenes"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Órdenes"
+       }
+      }
+     },
+     "position": {
+      "x": 4,
+      "y": 0,
+      "width": 2,
+      "height": 3
+     }
+    },
+    {
+     "widget": {
+      "name": "top",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_top",
+         "fields": [
+          {
+           "name": "product",
+           "expression": "`product`"
+          },
+          {
+           "name": "sum(revenue_usd)",
+           "expression": "SUM(`revenue_usd`)"
+          }
+         ],
+         "disaggregated": false
+        }
+       }
+      ],
+      "spec": {
+       "version": 3,
+       "widgetType": "bar",
+       "encodings": {
+        "x": {
+         "fieldName": "sum(revenue_usd)",
+         "scale": {
+          "type": "quantitative"
+         },
+         "displayName": "Revenue (USD)"
+        },
+        "y": {
+         "fieldName": "product",
+         "scale": {
+          "type": "categorical",
+          "sort": {
+           "by": "x-reversed"
+          }
+         },
+         "displayName": "Producto"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Top 10 productos por revenue"
+       }
+      }
+     },
+     "position": {
+      "x": 0,
+      "y": 3,
+      "width": 3,
+      "height": 7
+     }
+    },
+    {
+     "widget": {
+      "name": "cat",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_cat",
+         "fields": [
+          {
+           "name": "category",
+           "expression": "`category`"
+          },
+          {
+           "name": "sum(revenue_usd)",
+           "expression": "SUM(`revenue_usd`)"
+          }
+         ],
+         "disaggregated": false
+        }
+       }
+      ],
+      "spec": {
+       "version": 3,
+       "widgetType": "bar",
+       "encodings": {
+        "x": {
+         "fieldName": "category",
+         "scale": {
+          "type": "categorical",
+          "sort": {
+           "by": "y-reversed"
+          }
+         },
+         "displayName": "Categoría"
+        },
+        "y": {
+         "fieldName": "sum(revenue_usd)",
+         "scale": {
+          "type": "quantitative"
+         },
+         "displayName": "Revenue (USD)"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Revenue por categoría"
+       }
+      }
+     },
+     "position": {
+      "x": 3,
+      "y": 3,
+      "width": 3,
+      "height": 7
+     }
+    },
+    {
+     "widget": {
+      "name": "mes",
+      "queries": [
+       {
+        "name": "main_query",
+        "query": {
+         "datasetName": "d_mes",
+         "fields": [
+          {
+           "name": "monthly(month)",
+           "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+          },
+          {
+           "name": "sum(revenue_usd)",
+           "expression": "SUM(`revenue_usd`)"
+          }
+         ],
+         "disaggregated": false
+        }
+       }
+      ],
+      "spec": {
+       "version": 3,
+       "widgetType": "line",
+       "encodings": {
+        "x": {
+         "fieldName": "monthly(month)",
+         "scale": {
+          "type": "temporal"
+         },
+         "displayName": "Mes"
+        },
+        "y": {
+         "fieldName": "sum(revenue_usd)",
+         "scale": {
+          "type": "quantitative"
+         },
+         "displayName": "Revenue (USD)"
+        }
+       },
+       "frame": {
+        "showTitle": true,
+        "title": "Tendencia mensual de revenue"
+       }
+      }
+     },
+     "position": {
+      "x": 0,
+      "y": 10,
+      "width": 6,
+      "height": 6
+     }
+    }
+   ],
+   "pageType": "PAGE_TYPE_CANVAS"
+  }
+ ]
+}

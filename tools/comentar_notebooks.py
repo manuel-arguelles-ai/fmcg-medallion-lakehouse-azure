@@ -105,8 +105,8 @@ A = {
 ]),
 "03_silver_products": ([
     ("from pyspark.sql import functions as F", "lee los productos de Bronze y quita los repetidos"),
-    ('.withColumn("category", F.initcap("category"))', "normaliza categoría y nombre, y separa la variante que viene entre paréntesis"),
-    ('.withColumn("product_name", F.regexp_replace("product_name", "(?i)Protien"', "corrige el error «Protien» en el nombre y en la categoría"),
+    ("df_s = (df_s", "normaliza categoría y nombre, y separa la variante que viene entre paréntesis"),
+    ("df_s = (df_s", "corrige el error «Protien» en el nombre y en la categoría"),
     ('df_s = df_s.withColumn("division"', "deriva la división comercial, genera un código estable por producto y marca los identificadores inválidos"),
     ("(df_s.write", "guarda la tabla Silver de productos"),
 ], [
@@ -119,7 +119,7 @@ A = {
     ('.withColumn("product_name", F.regexp_replace("product_name", "(?i)Protien"', "(?i) = sin distinguir mayúsculas"),
     ('F.when(F.col("category") == "Energy Bars"', "regla de negocio: cada categoría pertenece a una división"),
     ('.otherwise("Other"))', "lo no previsto queda visible, no se pierde"),
-    ('.withColumn("product_code"', "huella del nombre: el mismo producto recibe siempre el mismo código"),
+    ('.withColumn("product_code"', "huella del nombre: el mismo nombre produce siempre el mismo código"),
     ('F.when(F.col("product_id").cast("string").rlike', "solo dígitos = identificador válido"),
     ('.otherwise(F.lit("999999")))', "inválido: se marca, no se borra"),
     ('df_s = df_s.select("product_code"', "orden final de columnas"),
@@ -294,7 +294,14 @@ def poner(src, cabeceras, lineas):
         L[i] = L[i].rstrip() + ("  -- " if magic else "  # ") + texto
         usados.add(i)
     for clave, texto in cabeceras:
-        i, magic = buscar(clave, libres=False)
+        propios = {"# MAGIC -- " + t for _, t in lineas}
+        i, magic = next((j, l.startswith("# MAGIC ")) for j, l in enumerate(L)
+                        if MARCA not in l and MARCA not in L[j - 1]
+                        and (l[8:] if l.startswith("# MAGIC ") else l).strip().startswith(clave))
+        while L[i - 1] in propios:  # la cabecera va antes de los comentarios propios de esa línea
+            i -= 1
+        if MARCA in L[i - 1]:
+            raise SystemExit(f"celda con dos cabeceras: {clave!r}")
         L.insert(i, ("# MAGIC -- " if magic else "# ") + MARCA + texto)
     return "\n".join(L)
 

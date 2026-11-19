@@ -24,8 +24,8 @@ display(df_s.limit(10))
 
 # COMMAND ----------
 
-df_s = (df_s
 # QUÉ HACE: normaliza categoría y nombre, y separa la variante que viene entre paréntesis
+df_s = (df_s
     .withColumn("category", F.initcap("category"))  # «energy bars» → «Energy Bars»
     .withColumn("variant", F.initcap(F.regexp_extract("product_name", r"\((.*?)\)", 1)))  # extrae lo que está entre paréntesis
     .withColumn("product_name", F.initcap(F.trim(F.regexp_replace("product_name", r"\s*\(.*\)\s*$", ""))))  # nombre sin la variante
@@ -39,8 +39,8 @@ display(df_s.groupBy("category").count())
 
 # COMMAND ----------
 
-df_s = (df_s
 # QUÉ HACE: corrige el error «Protien» en el nombre y en la categoría
+df_s = (df_s
     .withColumn("product_name", F.regexp_replace("product_name", "(?i)Protien", "Protein"))  # (?i) = sin distinguir mayúsculas
     .withColumn("category",     F.regexp_replace("category",     "(?i)Protien", "Protein")))
 display(df_s.groupBy("category").count())
@@ -63,7 +63,7 @@ df_s = df_s.withColumn("division",
      .otherwise("Other"))  # lo no previsto queda visible, no se pierde
 
 df_s = (df_s
-    .withColumn("product_code", F.sha2(F.col("product_name").cast("string"), 256))  # huella del nombre: el mismo producto recibe siempre el mismo código
+    .withColumn("product_code", F.sha2(F.col("product_name").cast("string"), 256))  # huella del nombre: el mismo nombre produce siempre el mismo código
     .withColumn("product_id",
         F.when(F.col("product_id").cast("string").rlike("^[0-9]+$"), F.col("product_id").cast("string"))  # solo dígitos = identificador válido
          .otherwise(F.lit("999999")))  # inválido: se marca, no se borra

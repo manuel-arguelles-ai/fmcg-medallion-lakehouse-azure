@@ -1,0 +1,219 @@
+{
+ "name": "fmcg-medallion-pipeline",
+ "max_concurrent_runs": 1,
+ "tasks": [
+  {
+   "task_key": "t00_setup",
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/00_setup_catalog"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t01_customers",
+   "depends_on": [
+    {
+     "task_key": "t00_setup"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/01_bronze_load",
+    "base_parameters": {
+     "data_source": "customers",
+     "load_mode": "initial"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t01_products",
+   "depends_on": [
+    {
+     "task_key": "t01_customers"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/01_bronze_load",
+    "base_parameters": {
+     "data_source": "products",
+     "load_mode": "initial"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t01_pricing",
+   "depends_on": [
+    {
+     "task_key": "t01_products"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/01_bronze_load",
+    "base_parameters": {
+     "data_source": "gross_price",
+     "load_mode": "initial"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t01_orders",
+   "depends_on": [
+    {
+     "task_key": "t01_pricing"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/01_bronze_load",
+    "base_parameters": {
+     "data_source": "orders",
+     "load_mode": "initial"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t02_customers",
+   "depends_on": [
+    {
+     "task_key": "t01_orders"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/02_silver_customers"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t03_products",
+   "depends_on": [
+    {
+     "task_key": "t02_customers"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/03_silver_products"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t04_pricing",
+   "depends_on": [
+    {
+     "task_key": "t03_products"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/04_silver_pricing"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t05_orders",
+   "depends_on": [
+    {
+     "task_key": "t04_pricing"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/05_silver_orders",
+    "base_parameters": {
+     "load_mode": "initial"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t06_dims",
+   "depends_on": [
+    {
+     "task_key": "t05_orders"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/06_gold_dims"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t07_fact_full",
+   "depends_on": [
+    {
+     "task_key": "t06_dims"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/07_gold_fact_full_load"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t01_orders_incr",
+   "depends_on": [
+    {
+     "task_key": "t07_fact_full"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/01_bronze_load",
+    "base_parameters": {
+     "data_source": "orders",
+     "load_mode": "incremental"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t05_orders_incr",
+   "depends_on": [
+    {
+     "task_key": "t01_orders_incr"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/05_silver_orders",
+    "base_parameters": {
+     "load_mode": "incremental"
+    }
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t08_fact_incr",
+   "depends_on": [
+    {
+     "task_key": "t05_orders_incr"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/08_gold_fact_incremental"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t09_optimize",
+   "depends_on": [
+    {
+     "task_key": "t08_fact_incr"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/09_optimize_and_kpis"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  },
+  {
+   "task_key": "t98_validacion",
+   "depends_on": [
+    {
+     "task_key": "t09_optimize"
+    }
+   ],
+   "notebook_task": {
+    "notebook_path": "<CARPETA_DEL_PROYECTO>/98_validacion"
+   },
+   "existing_cluster_id": "<ID_DE_TU_CLUSTER>"
+  }
+ ]
+}
