@@ -96,15 +96,14 @@
  },
  "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
  "pruebas_adicionales": {
-  "nota": "Hechas con los mismos notebooks de esta ejecución, en serverless, sobre el catálogo del target dev (fmcg_dev), desplegado con el bundle desde la CLI. Se registra el resultado, no las salidas completas.",
+  "nota": "Hechas con los mismos notebooks de esta ejecución, sobre el catálogo del target dev (fmcg_dev), desplegado con el bundle desde la CLI; en serverless salvo donde se indica. Se registra el resultado, no las salidas completas.",
   "dev_desde_cero": "SUCCESS, 66 de 66",
   "segunda_ejecucion_sin_reset": "SUCCESS, 338 s, 66 de 66",
   "orquestador_run_all_desde_cero": "SUCCESS, 305 s, validación incluida",
   "corte_entre_bronze_y_tabla_de_paso": "tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso («CORTE SIMULADO»); el resto del pipeline la reconstruyó y la validación dio 66 de 66",
   "orden_inesperada_en_un_archivo_nuevo": "con una orden extra en un archivo nuevo de la carpeta incremental, el job terminó en FAILED y la validación señaló 11 cifras",
   "fila_malformada": "qa/pruebas/fila_malformada.py leyó un CSV con una fila de tipo incorrecto y otra con una columna de más; la primera quedó en _rescued_data, la segunda no (límite declarado)",
-  "versiones_anteriores_de_esta_rama": {
-   "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida (DBR 16.4 LTS)"
-  }
+  "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 510 s, validación incluida (DBR 16.4 LTS)",
+  "historial_de_delta_sustituido": "qa/pruebas/historial_recortado.py sustituyó gold.fact_sales y silver.orders por clones sin historial (solo la operación CLONE); después, 98_validacion dio 66 de 66 leyendo del registro de cargas"
  }
 }
