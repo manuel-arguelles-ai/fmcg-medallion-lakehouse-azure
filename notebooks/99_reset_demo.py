@@ -9,21 +9,23 @@
 
 # COMMAND ----------
 
+# QUÉ HACE: borra todas las tablas de las tres capas
 for schema in [bronze_schema, silver_schema, gold_schema]:
-    for t in spark.sql(f"SHOW TABLES IN {catalog}.{schema}").collect():
-        spark.sql(f"DROP TABLE IF EXISTS {catalog}.{schema}.{t['tableName']}")
+    for t in spark.sql(f"SHOW TABLES IN {catalog}.{schema}").collect():  # recorre las tablas del esquema
+        spark.sql(f"DROP TABLE IF EXISTS {catalog}.{schema}.{t['tableName']}")  # borra la tabla
         print("drop", f"{catalog}.{schema}.{t['tableName']}")
 
 # COMMAND ----------
 
-sources = [("initial", s) for s in ["customers", "products", "gross_price", "orders"]] + [("incremental", "orders")]
+# QUÉ HACE: devuelve los CSV de processed/ a landing/ para poder cargar otra vez desde cero
+sources = [("initial", s) for s in ["customers", "products", "gross_price", "orders"]] + [("incremental", "orders")]  # las cinco carpetas de datos
 for mode, s in sources:
     processed = f"{landing_root}/{mode}/{s}/processed/"
     landing = f"{landing_root}/{mode}/{s}/landing/"
     try:
         files = dbutils.fs.ls(processed)
-    except Exception:
+    except Exception:  # si la carpeta no existe, no hay nada que mover
         files = []
     for f in files:
-        dbutils.fs.mv(f.path, landing + f.name)
+        dbutils.fs.mv(f.path, landing + f.name)  # de vuelta a landing/
     print(f"{mode}/{s}: landing =", [f.name for f in dbutils.fs.ls(landing)])

@@ -9,6 +9,7 @@
 
 # COMMAND ----------
 
+# QUÉ HACE: arma la tabla de ventas: una fila por línea de orden, con su precio y su revenue
 df = spark.sql(f"""
     SELECT o.order_id,
            o.order_placement_date AS date,
@@ -23,7 +24,7 @@ df = spark.sql(f"""
            ON o.product_id = p.product_id
           AND trunc(o.order_placement_date, 'MM') = p.price_month
 """)
-print("fact rows:", df.count())
+print("fact rows:", df.count())  # cifra de control: 4.511
 display(df.limit(10))
 
 # COMMAND ----------
@@ -35,16 +36,19 @@ display(df.limit(10))
 
 # COMMAND ----------
 
+# QUÉ HACE: guarda fact_sales completa (carga inicial)
 fact_table = f"{catalog}.{gold_schema}.fact_sales"
 (df.write.format("delta")
    .option("delta.enableChangeDataFeed", "true")
    .option("overwriteSchema", "true")
-   .mode("overwrite")
+   .mode("overwrite")  # la carga inicial crea la versión 0 de la tabla
    .saveAsTable(fact_table))
 print("OK →", fact_table)
 
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- QUÉ HACE: totales de control: deben coincidir con la lámina
 # MAGIC SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity) AS units, COUNT(*) AS order_lines
+# MAGIC -- esperado: 648.109,79 · 92.491 · 4.511
 # MAGIC FROM fmcg.gold.fact_sales;

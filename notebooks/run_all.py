@@ -78,11 +78,12 @@
 # MAGIC ### ✅ Resumen final
 
 # COMMAND ----------
+# QUÉ HACE: cuenta las filas de las 13 tablas como resumen final
 counts = {}
 for t in ["bronze.customers", "bronze.products", "bronze.gross_price", "bronze.orders",
           "silver.customers", "silver.products", "silver.gross_price", "silver.orders",
           "gold.dim_date", "gold.dim_customers", "gold.dim_products", "gold.dim_pricing", "gold.fact_sales"]:
-    counts[t] = spark.table(f"fmcg.{t}").count()
+    counts[t] = spark.table(f"fmcg.{t}").count()  # filas de cada tabla
 for k, v in counts.items():
     print(f"{k:24s} {v:>8,} filas")
 print("\nPipeline completo OK ✅")

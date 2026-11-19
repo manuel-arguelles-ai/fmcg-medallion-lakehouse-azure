@@ -23,7 +23,7 @@ Adaptado del proyecto público [databricks-medallion-lakehouse-fmcg](https://git
 
 ## Pasos
 
-1. Importa la carpeta `notebooks/` a tu workspace. Los notebooks deben quedar sin la extensión `.py` en el nombre (todos usan `%run ./utilities`).
+1. Importa la carpeta `notebooks/` a tu workspace. Los notebooks deben quedar sin la extensión `.py` en el nombre (todos usan `%run ./utilities`). Cada celda empieza con una línea «QUÉ HACE» y el código lleva comentarios orientativos al final de las líneas clave; cuando ya no los necesites, `python3 tools/comentar_notebooks.py --quitar` los elimina sin tocar el código.
 2. Ejecuta `00_setup_catalog`. Si tu metastore no permite `CREATE CATALOG` sin ubicación, crea el catálogo `fmcg` desde el Explorador de catálogos y vuelve a ejecutar.
 3. Sube los CSV al Volume respetando las carpetas:
    ```
