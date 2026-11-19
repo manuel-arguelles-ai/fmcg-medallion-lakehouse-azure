@@ -96,6 +96,7 @@
  "pruebas_adicionales": {
   "re_ejecucion_sin_reset": "SUCCESS, 60 de 60",
   "archivo_ya_cargado_devuelto_a_landing": "SUCCESS, 60 de 60, no se cargó dos veces",
-  "orden_inesperada_en_un_archivo_nuevo": "FAILED en t98_validacion, 11 cifras señaladas"
+  "orden_inesperada_en_un_archivo_nuevo": "FAILED en t98_validacion, 11 cifras señaladas",
+  "orquestador_run_all_dos_veces_seguidas": "SUCCESS las dos, 60 de 60"
  }
 }

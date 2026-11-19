@@ -237,7 +237,7 @@ Cada escritura crea una versión de la tabla, y se puede volver a consultar mien
 2. El notebook `98_validacion` extrae las cifras reales de las tablas y las compara, dentro del job, con las esperadas. Si una sola difiere, lanza un error y la ejecución queda en rojo.
 3. Son 60 comprobaciones: filas por tabla, clientes por ciudad, productos por categoría, revenue por categoría y por mes, historial de `MERGE` en Silver y en Gold, llaves duplicadas, ventas sin dimensión y filas en cuarentena por archivo y motivo.
 
-Resultado: 60 de 60. La salida real de la última ejecución del job y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/).
+Resultado: 60 de 60. La salida real de la última ejecución del job y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/). El orquestador `run_all` dio el mismo resultado, dos veces seguidas. Todo se probó en un cluster de un solo nodo; esta versión no se ha probado en serverless.
 
 Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos y comprueba que salen idénticos, recalcula las cifras esperadas y las compara con las publicadas, comprueba que el notebook de validación usa esas mismas cifras, compara la salida guardada de la última ejecución, y comprueba que esa evidencia corresponde a los notebooks actuales y que sus comentarios no alteran el código Python.
 
@@ -272,7 +272,7 @@ La tabla completa de decisiones, lo que no salió a la primera y todas las limit
 
 ## Cómo ejecutarlo
 
-Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un catálogo llamado `fmcg`. Probado en Azure Databricks Premium (creado con la prueba gratuita de Azure), en DBR 16.4 LTS y en serverless.
+Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un catálogo llamado `fmcg`. Probado en Azure Databricks Premium (creado con la prueba gratuita de Azure), en DBR 16.4 LTS con un cluster de un solo nodo.
 
 1. **Importa** la carpeta `notebooks/` a tu workspace. Al importar, Databricks quita la extensión `.py` del nombre.
    ```bash

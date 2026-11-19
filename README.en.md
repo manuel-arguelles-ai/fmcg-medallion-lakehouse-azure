@@ -239,7 +239,7 @@ Every write creates a version of the table, and it can be queried again for as l
 2. The `98_validacion` notebook extracts the actual figures from the tables and compares them, inside the job, with the expected ones. If a single one differs, it raises an error and the run ends in red.
 3. There are 60 checks: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` history in Silver and in Gold, duplicate keys, sales without a dimension and quarantined rows per file and reason.
 
-Result: 60 of 60. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/).
+Result: 60 of 60. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/). The `run_all` orchestrator gave the same result, twice in a row. Everything was tested on a single-node cluster; this version has not been tested on serverless.
 
 A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, checks that the validation notebook uses those same figures, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
 
@@ -274,7 +274,7 @@ The full decision table, what did not work the first time and all the limitation
 
 ## How to run it
 
-You need a Databricks workspace with Unity Catalog and permission to create a catalog named `fmcg`. Tested on Azure Databricks Premium (created with the Azure free trial), on DBR 16.4 LTS and on serverless.
+You need a Databricks workspace with Unity Catalog and permission to create a catalog named `fmcg`. Tested on Azure Databricks Premium (created with the Azure free trial), on DBR 16.4 LTS with a single-node cluster.
 
 1. **Import** the `notebooks/` folder into your workspace. On import, Databricks drops the `.py` extension from the name.
    ```bash
