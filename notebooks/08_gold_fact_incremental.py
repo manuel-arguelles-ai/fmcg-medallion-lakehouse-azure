@@ -81,6 +81,7 @@ ins1, upd1 = merge_fact()  # primera ejecución: 275 insertadas, 20 actualizadas
 
 # QUÉ HACE: segunda ejecución con el mismo lote: no debe cambiar nada
 ins2, upd2 = merge_fact()
+registrar_cargas(f"{gold_schema}.fact_sales", con_importes=True)
 assert (ins2, upd2) == (0, 0), "El MERGE no es idempotente"  # si no da 0 y 0, el notebook falla a propósito
 print("Idempotente ✅")
 

@@ -46,6 +46,7 @@ fact_table = f"{catalog}.{gold_schema}.fact_sales"
 # restricción de la tabla: una venta sin precio no entra (ni ahora ni en los lotes siguientes)
 spark.sql(f"ALTER TABLE {fact_table} DROP CONSTRAINT IF EXISTS precio_no_nulo")
 spark.sql(f"ALTER TABLE {fact_table} ADD CONSTRAINT precio_no_nulo CHECK (price IS NOT NULL)")  # un lote con una venta sin precio falla en vez de publicar revenue nulo
+registrar_cargas(f"{gold_schema}.fact_sales", con_importes=True)
 print("OK →", fact_table)
 
 # COMMAND ----------

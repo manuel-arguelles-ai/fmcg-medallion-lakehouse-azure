@@ -33,6 +33,8 @@ print(landing_path, "->", bronze_table)
 # MAGIC %md
 # MAGIC ### Esquema declarado
 # MAGIC Bronze no limpia, pero tampoco adivina: cada fuente tiene sus columnas y tipos escritos. Los identificadores que llegan sucios se leen como texto para no perder el valor original.
+# MAGIC
+# MAGIC Si una fila no encaja en el esquema (un texto donde va un número, columnas de más), el valor no se pierde en silencio: Auto Loader lo guarda en la columna `_rescued_data` y Silver decide qué hacer con esa fila.
 
 # COMMAND ----------
 
@@ -60,6 +62,7 @@ inicio = spark.sql("SELECT CAST(current_timestamp() AS STRING) AS t").first()["t
 df = (spark.readStream.format("cloudFiles")  # cloudFiles = Auto Loader
       .option("cloudFiles.format", "csv")
       .option("header", True)  # la primera fila trae los nombres de columna
+      .option("rescuedDataColumn", "_rescued_data")  # lo que no encaje en el esquema se guarda aquí en vez de perderse
       .schema(schema)  # esquema declarado, sin inferencia
       .load(landing_path)  # vigila la carpeta completa
       .withColumn("read_timestamp", F.current_timestamp())  # cuándo se leyó
@@ -117,4 +120,6 @@ if load_mode == "incremental":
 # COMMAND ----------
 
 # QUÉ HACE: comprobación: cuántas filas aportó cada archivo
-display(spark.table(bronze_table).groupBy("file_name").agg(F.count("*").alias("filas")))
+display(spark.table(bronze_table).groupBy("file_name").agg(
+    F.count("*").alias("filas"),
+    F.count("_rescued_data").alias("filas_malformadas")))

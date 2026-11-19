@@ -104,4 +104,15 @@ assert q_ini["validas"] == len(s_ini) and q_inc["validas"] == len(s_inc), "los p
 m["quality"] = {"orders_initial": q_ini, "orders_incremental": q_inc,
                 "quarantine": {"orders_batch.csv": {k: q_ini[k] for k in ("sin_cantidad", "producto_inexistente")},
                                "orders_incremental_batch.csv": {k: q_inc[k] for k in ("sin_cantidad", "producto_inexistente")}}}
+# filas con un valor que no encaja en el tipo declarado en Bronze (un texto donde va un número): deben quedar en _rescued_data
+def malformadas(rows, tipos):
+    def mala(r):
+        for c, t in tipos.items():
+            try: r[c] == "" or t(r[c])
+            except ValueError: return True
+        return False  # una columna de más o de menos no cuenta: el lector CSV no la señala
+    return sum(1 for r in rows if mala(r))
+m["malformed"] = {"customers": malformadas(cust, {"customer_id": int}), "products": malformadas(prod, {}),
+                  "gross_price": malformadas(price, {"product_id": int, "price": float}),
+                  "orders": malformadas(o_ini + o_inc, {"order_id": int, "order_qty": int})}
 print(json.dumps(m, indent=1, ensure_ascii=False))

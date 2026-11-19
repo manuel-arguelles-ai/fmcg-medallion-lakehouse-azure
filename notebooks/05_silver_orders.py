@@ -42,6 +42,7 @@ display(df.limit(10))
 
 # QUÉ HACE: declara las reglas de calidad y la función que aparta las filas que no las cumplen
 REGLAS = {
+    "fila_malformada":      "_rescued_data IS NULL",  # la fila no encajó en el esquema de Bronze: no se puede confiar en sus valores
     "sin_cantidad":         "order_qty IS NOT NULL",  # sin cantidad no hay venta que medir
     "producto_inexistente": "product_code IS NOT NULL",  # sin producto en el maestro no hay precio
 }
@@ -59,11 +60,13 @@ def aplicar_regla(df, nombre):
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 1. Regla «sin_cantidad» + limpiar customer_id
+# MAGIC ### 1. Reglas «fila_malformada» y «sin_cantidad» + limpiar customer_id
+# MAGIC Primero se apartan las filas que no encajaron en el esquema de Bronze (`_rescued_data` con contenido); después, las que no traen cantidad.
 
 # COMMAND ----------
 
-# QUÉ HACE: aplica la primera regla y marca los clientes inválidos
+# QUÉ HACE: aplica las dos primeras reglas y marca los clientes inválidos
+df = aplicar_regla(df, "fila_malformada")
 df = aplicar_regla(df, "sin_cantidad")
 df = (df.withColumn("order_qty", F.col("order_qty").cast("int"))
         .withColumn("customer_id", F.col("customer_id").cast("string"))
@@ -134,7 +137,8 @@ print("Tras quitar repetidas:", n_dedup, "| con producto válido:", df.count()) 
 
 # QUÉ HACE: guarda las filas rechazadas con su motivo
 quarantine_table = f"{catalog}.{silver_schema}.orders_quarantine"
-df_q = rechazadas[0].unionByName(rechazadas[1]).withColumn("quarantined_at", F.current_timestamp())  # las rechazadas por las dos reglas
+from functools import reduce
+df_q = reduce(lambda a, b: a.unionByName(b), rechazadas).withColumn("quarantined_at", F.current_timestamp())  # las rechazadas por las dos reglas
 if load_mode == "initial" or not spark.catalog.tableExists(quarantine_table):  # carga inicial: la cuarentena se reemplaza
     df_q.write.format("delta").option("overwriteSchema", "true").mode("overwrite").saveAsTable(quarantine_table)
 else:
@@ -174,4 +178,5 @@ else:
 for nombre, condicion in {"cantidad_no_nula": "order_qty IS NOT NULL", "fecha_no_nula": "order_placement_date IS NOT NULL"}.items():
     spark.sql(f"ALTER TABLE {silver_table} DROP CONSTRAINT IF EXISTS {nombre}")  # permite repetir la celda sin error
     spark.sql(f"ALTER TABLE {silver_table} ADD CONSTRAINT {nombre} CHECK ({condicion})")  # desde aquí, Delta rechaza cualquier fila que la incumpla
+registrar_cargas(f"{silver_schema}.orders")  # anota esta carga en el registro que lee la validación
 print("OK →", silver_table, "|", spark.table(silver_table).count(), "filas")

@@ -104,6 +104,12 @@ esperado = json.loads(r"""
     "producto_inexistente": 10
    }
   }
+ },
+ "malformed": {
+  "customers": 0,
+  "products": 0,
+  "gross_price": 0,
+  "orders": 0
  }
 }
 """)
@@ -147,4 +153,8 @@ def comparar(real, esp, out=print):
     for archivo, motivos in esp["quality"]["quarantine"].items():
         for motivo, n in motivos.items():
             chk(f"cuarentena {archivo} · {motivo}", real["quarantine"].get(archivo, {}).get(motivo, 0), n)
+    for tabla, n in esp["malformed"].items():
+        chk(f"filas malformadas en bronze.{tabla}", real["malformed"][tabla], n)
+    for archivo in esp["quality"]["quarantine"]:
+        chk(f"cuarentena {archivo} · fila_malformada", real["quarantine"].get(archivo, {}).get("fila_malformada", 0), 0)
     return fallas

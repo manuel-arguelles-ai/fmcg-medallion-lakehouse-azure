@@ -95,5 +95,11 @@
     "producto_inexistente": 10
    }
   }
+ },
+ "malformed": {
+  "customers": 0,
+  "products": 0,
+  "gross_price": 0,
+  "orders": 0
  }
 }

@@ -37,4 +37,4 @@
 - **Las reglas «confirmadas por negocio»** (las cuatro ciudades y el precio más alto) son supuestos del caso: los datos son sintéticos.
 - **Otras:** llaves naturales sin llaves sustitutas, importes en `DOUBLE` y no en `DECIMAL`, `ZORDER` aplicado sin medir su efecto (con menos de 5.000 filas no se espera diferencia), Change Data Feed activado sin consumidor y calendario fijo en 2026.
 
-Siguientes pasos: validación con reglas relativas entre cargas y que no dependa del historial de las tablas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.
+Siguientes pasos: validación con reglas relativas entre cargas, detección de filas con columnas de más, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.

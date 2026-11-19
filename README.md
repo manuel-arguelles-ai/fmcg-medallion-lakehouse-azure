@@ -12,7 +12,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 
 | | |
 |---|---|
-| **Resultado** | 13 tablas Delta en tres capas (más dos de paso y una de cuarentena) · 4.786 líneas de venta · US$ 684.393,99 de revenue · 60 de 60 comprobaciones dentro del job |
+| **Resultado** | 13 tablas Delta en tres capas (más dos de paso, una de cuarentena y un registro de cargas) · 4.786 líneas de venta · US$ 684.393,99 de revenue · 66 de 66 comprobaciones dentro del job |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · Auto Loader · PySpark · Spark SQL · Lakeflow Jobs · Asset Bundles · AI/BI Dashboards · ADLS Gen2 |
 | **Tiempo de ejecución** | Unos 5 minutos de principio a fin en serverless ([5 min 22 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
 | **Datos** | Sintéticos y reproducibles: 5 archivos CSV, 5.954 filas, generados con semilla fija |
@@ -25,7 +25,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 - **Cifras verificadas:** un cálculo independiente en Python puro produce las cifras de control y el job falla por sí mismo si alguna no coincide; además, un flujo automático comprueba en cada cambio que ese cálculo sigue dando lo mismo y que coincide con la salida guardada de la última ejecución.
 - **Reglas explícitas para los datos malos:** cada caso se corrige, se marca o va a una tabla de cuarentena con su motivo.
 
-**Para verlo sin ejecutar nada:** la [comparación de las 60 comprobaciones](qa/evidencia/comparacion.txt), el [registro de la última ejecución](qa/evidencia/ejecucion_job.json) con la duración de cada tarea, la tabla de [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) y la [última verificación automática](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
+**Para verlo sin ejecutar nada:** la [comparación de las 66 comprobaciones](qa/evidencia/comparacion.txt), el [registro de la última ejecución](qa/evidencia/ejecucion_job.json) con la duración de cada tarea, la tabla de [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) y la [última verificación automática](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
 
 ## Contenido
 
@@ -173,7 +173,7 @@ Catorce notebooks, más uno generado con las cifras esperadas; los numerados van
 | [`07_gold_fact_full_load`](notebooks/07_gold_fact_full_load.py) | Carga inicial de `fact_sales` con precio y revenue | 4.511 filas · US$ 648.109,79 |
 | [`08_gold_fact_incremental`](notebooks/08_gold_fact_incremental.py) | Fusiona el lote nuevo con `MERGE` y demuestra la idempotencia | 4.511 → 4.786 |
 | [`09_optimize_and_kpis`](notebooks/09_optimize_and_kpis.py) | `OPTIMIZE ZORDER`, consulta de una versión anterior y las consultas del dashboard | — |
-| [`98_validacion`](notebooks/98_validacion.py) | Extrae las cifras reales, las compara con las esperadas y falla si alguna difiere | 60 comprobaciones |
+| [`98_validacion`](notebooks/98_validacion.py) | Extrae las cifras reales, las compara con las esperadas y falla si alguna difiere | 66 comprobaciones |
 | [`99_reset_demo`](notebooks/99_reset_demo.py) | Borra las tablas y la memoria de Auto Loader, para empezar desde cero | — |
 
 </details>
@@ -225,7 +225,8 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las mismas 60 comprobaciones, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
 - **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
 - **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) y las 60 cifras.
-- **Límite conocido:** la validación lee el historial de las tablas (primer `MERGE`, versión 0): vale mientras ese historial se conserve.
+- **La validación no depende del historial de Delta:** cada carga completa y cada `MERGE` se copia a una tabla propia, `gold.load_log`, y la validación lee de ahí. El historial de Delta se recorta con el tiempo; el registro, no. No está probado con un historial ya recortado.
+- **Filas malformadas:** un valor que no encaja en el tipo declarado (un texto donde va un número) no se convierte en nulo en silencio: Auto Loader lo guarda en `_rescued_data` y Silver envía la orden a cuarentena con el motivo `fila_malformada`. Probado con [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Límite:** una fila con columnas de más no se señala, porque el lector CSV descarta los valores sobrantes; y la regla solo existe para órdenes.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
 |---|---|
@@ -239,9 +240,9 @@ Cada escritura crea una versión de la tabla, y se puede volver a consultar mien
 
 1. [`qa/oraculo.py`](qa/oraculo.py) recalcula desde los CSV, en Python puro y sin Spark, todo lo que el pipeline debe producir. El resultado está en [`qa/esperado.json`](qa/esperado.json).
 2. El notebook `98_validacion` extrae las cifras reales de las tablas y las compara, dentro del job, con las esperadas. Si una sola difiere, lanza un error y la ejecución queda en rojo.
-3. Son 60 comprobaciones: filas por tabla, clientes por ciudad, productos por categoría, revenue por categoría y por mes, historial de `MERGE` en Silver y en Gold, llaves duplicadas, ventas sin dimensión y filas en cuarentena por archivo y motivo.
+3. Son 66 comprobaciones: filas por tabla, clientes por ciudad, productos por categoría, revenue por categoría y por mes, historial de `MERGE` en Silver y en Gold, llaves duplicadas, ventas sin dimensión, filas malformadas por tabla y filas en cuarentena por archivo y motivo.
 
-Resultado: 60 de 60. La salida real de la última ejecución del job (en serverless, desplegado con el bundle) y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/), junto con el registro de las pruebas adicionales.
+Resultado: 66 de 66. La salida real de la última ejecución del job (en serverless, desplegado con el bundle) y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/), junto con el registro de las pruebas adicionales.
 
 Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos y comprueba que salen idénticos, recalcula las cifras esperadas y las compara con las publicadas, comprueba que el notebook de validación usa esas mismas cifras, compara la salida guardada de la última ejecución, y comprueba que esa evidencia corresponde a los notebooks actuales y que sus comentarios no alteran el código Python.
 
@@ -314,7 +315,7 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
 
-Siguientes pasos: validación con reglas relativas entre cargas y que no dependa del historial de las tablas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.
+Siguientes pasos: validación con reglas relativas entre cargas, detección de filas con columnas de más, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.
 
 La lista completa está en [`docs/DISENO.md`](docs/DISENO.md#limitaciones-y-siguientes-pasos).
 
@@ -328,7 +329,7 @@ Este proyecto parte de [databricks-medallion-lakehouse-fmcg](https://github.com/
 | Reglas de limpieza de Silver | Generador de datos sintéticos reproducible (el original no incluye datos) |
 | Carga incremental con `MERGE` | Condición de cambio y prueba de idempotencia repetible |
 | | Modelo autocontenido: se eliminó el paso que escribía en tablas que el original no incluye |
-| | Verificación contra un cálculo independiente (60 comprobaciones) dentro del job, que falla si una cifra difiere |
+| | Verificación contra un cálculo independiente (66 comprobaciones) dentro del job, que falla si una cifra difiere |
 | | Reglas de calidad declaradas, tabla de cuarentena y restricciones en las tablas |
 | | Ingesta con esquema declarado y control de archivos ya cargados; pipeline re-ejecutable sin reset |
 | | Job de 16 tareas, dashboard, notebook de reset y notebooks comentados |

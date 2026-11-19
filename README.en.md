@@ -12,7 +12,7 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 
 | | |
 |---|---|
-| **Result** | 13 Delta tables across three layers (plus two staging tables and one quarantine table) · 4,786 sales lines · US$ 684,393.99 in revenue · 60 of 60 checks inside the job |
+| **Result** | 13 Delta tables across three layers (plus two staging tables, one quarantine table and a load log) · 4,786 sales lines · US$ 684,393.99 in revenue · 66 of 66 checks inside the job |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · Auto Loader · PySpark · Spark SQL · Lakeflow Jobs · Asset Bundles · AI/BI Dashboards · ADLS Gen2 |
 | **Run time** | About 5 minutes end to end on serverless ([5 min 22 s in the latest run](qa/evidencia/ejecucion_job.json)) |
 | **Data** | Synthetic and reproducible: 5 CSV files, 5,954 rows, generated with a fixed seed |
@@ -25,7 +25,7 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 - **Verified figures:** an independent calculation in plain Python produces the control figures and the job fails by itself if any of them does not match; in addition, an automated workflow checks on every change that the calculation still gives the same result and that it matches the stored output of the latest run.
 - **Explicit rules for bad data:** each case is fixed, flagged or sent to a quarantine table with its reason.
 
-**To see it without running anything:** the [comparison of the 60 checks](qa/evidencia/comparacion.txt), the [record of the latest run](qa/evidencia/ejecucion_job.json) with the duration of each task, the table of [what happens to each bad record](#what-happens-to-each-bad-record) and the [latest automated check](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
+**To see it without running anything:** the [comparison of the 66 checks](qa/evidencia/comparacion.txt), the [record of the latest run](qa/evidencia/ejecucion_job.json) with the duration of each task, the table of [what happens to each bad record](#what-happens-to-each-bad-record) and the [latest automated check](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
 
 The notebooks, their comments and the screenshots are in Spanish.
 
@@ -175,7 +175,7 @@ Fourteen notebooks, plus a generated one with the expected figures; the numbered
 | [`07_gold_fact_full_load`](notebooks/07_gold_fact_full_load.py) | Initial load of `fact_sales` with price and revenue | 4,511 rows · US$ 648,109.79 |
 | [`08_gold_fact_incremental`](notebooks/08_gold_fact_incremental.py) | Merges the new batch with `MERGE` and demonstrates idempotency | 4,511 → 4,786 |
 | [`09_optimize_and_kpis`](notebooks/09_optimize_and_kpis.py) | `OPTIMIZE ZORDER`, a query on an earlier version and the dashboard queries | — |
-| [`98_validacion`](notebooks/98_validacion.py) | Extracts the actual figures, compares them with the expected ones and fails if any differs | 60 checks |
+| [`98_validacion`](notebooks/98_validacion.py) | Extracts the actual figures, compares them with the expected ones and fails if any differs | 66 checks |
 | [`99_reset_demo`](notebooks/99_reset_demo.py) | Drops the tables and Auto Loader's memory, to start from scratch | — |
 
 </details>
@@ -227,7 +227,8 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion). For these tests the result is recorded, not the full outputs.
 - **What proves what:** the idempotency of `MERGE` is shown by notebook `08`, which runs it twice with the same batch. A full re-run without a reset reaches the same result by another path: Bronze loads nothing new, and Silver and the fact table are rebuilt from all of Bronze.
 - **Recovery after an interruption:** the staging table is built from the incremental Bronze rows that are newer than the ones it already holds, not from the memory of the run. If the run is interrupted after loading Bronze and before writing it, the retry rebuilds it; this is tested with [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) and the 60 figures.
-- **Known limit:** validation reads the table history (first `MERGE`, version 0): it holds for as long as that history is retained.
+- **Validation does not depend on Delta history:** every full load and every `MERGE` is copied to a table of its own, `gold.load_log`, and validation reads from there. Delta history is trimmed over time; the log is not. It has not been tested with an already trimmed history.
+- **Malformed rows:** a value that does not fit the declared type (text where a number goes) does not silently become null: Auto Loader keeps it in `_rescued_data` and Silver sends the order to quarantine with the reason `fila_malformada`. Tested with [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Limit:** a row with extra columns is not flagged, because the CSV reader drops the surplus values; and the rule only exists for orders.
 
 | The `MERGE`, executed | Second run and table history |
 |---|---|
@@ -241,9 +242,9 @@ Every write creates a version of the table, and it can be queried again for as l
 
 1. [`qa/oraculo.py`](qa/oraculo.py) recomputes from the CSV files, in plain Python and without Spark, everything the pipeline must produce. The result is in [`qa/esperado.json`](qa/esperado.json).
 2. The `98_validacion` notebook extracts the actual figures from the tables and compares them, inside the job, with the expected ones. If a single one differs, it raises an error and the run ends in red.
-3. There are 60 checks: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` history in Silver and in Gold, duplicate keys, sales without a dimension and quarantined rows per file and reason.
+3. There are 66 checks: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` history in Silver and in Gold, duplicate keys, sales without a dimension and quarantined rows per file and reason.
 
-Result: 60 of 60. The actual output of the latest job run (on serverless, deployed with the bundle) and its comparison are stored in [`qa/evidencia/`](qa/evidencia/), together with the record of the additional tests.
+Result: 66 of 66. The actual output of the latest job run (on serverless, deployed with the bundle) and its comparison are stored in [`qa/evidencia/`](qa/evidencia/), together with the record of the additional tests.
 
 A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, checks that the validation notebook uses those same figures, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
 
@@ -316,7 +317,7 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
 - **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities.
 
-Next steps: validation with relative rules between loads that does not depend on table history, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, creating and testing the `dev` catalog and SCD type 2 on customers.
+Next steps: validation with relative rules between loads, detection of rows with extra columns, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, creating and testing the `dev` catalog and SCD type 2 on customers.
 
 The full list is in [`docs/DESIGN.md`](docs/DESIGN.md#limitations-and-next-steps).
 
@@ -330,7 +331,7 @@ This project starts from [databricks-medallion-lakehouse-fmcg](https://github.co
 | Silver cleaning rules | Reproducible synthetic data generator (the original ships no data) |
 | Incremental load with `MERGE` | Change condition and a repeatable idempotency proof |
 | | Self-contained model: the step that wrote to tables the original does not include was removed |
-| | Verification against an independent calculation (60 checks) inside the job, which fails if a figure differs |
+| | Verification against an independent calculation (66 checks) inside the job, which fails if a figure differs |
 | | Declared quality rules, quarantine table and table constraints |
 | | Ingestion with a declared schema and tracking of loaded files; pipeline re-runnable without a reset |
 | | 16-task job, dashboard, reset notebook and commented notebooks |

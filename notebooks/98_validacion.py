@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC ## 98 · Validación — el job falla si una cifra no coincide
-# MAGIC Extrae las cifras reales de las tablas y las compara con las que produce el cálculo independiente (`qa/oraculo.py`). Si alguna difiere, el notebook termina con error y la ejecución del job queda en rojo.
+# MAGIC Extrae las cifras reales de las tablas y del registro de cargas (`gold.load_log`) y las compara con las que produce el cálculo independiente (`qa/oraculo.py`). Si alguna difiere, el notebook termina con error y la ejecución del job queda en rojo.
 
 # COMMAND ----------
 
@@ -29,12 +29,12 @@ m["orders_null_dates"] = q("SELECT COUNT(*) c FROM silver.orders WHERE order_pla
 m["orders_min_max"] = [str(x) for x in q("SELECT MIN(order_placement_date) a, MAX(order_placement_date) b FROM silver.orders")[0]]
 r = q("SELECT COUNT(*) c, SUM(quantity) u, round(SUM(revenue),2) rev, SUM(CASE WHEN price IS NULL THEN 1 ELSE 0 END) np, COUNT(DISTINCT order_id) o FROM gold.fact_sales")[0]
 m["fact_now"] = {"rows": r["c"], "units": r["u"], "revenue": float(r["rev"]), "null_price": r["np"], "orders": r["o"]}  # totales de la tabla de ventas, hoy
-r = q("SELECT COUNT(*) c, SUM(quantity) u, round(SUM(revenue),2) rev FROM gold.fact_sales VERSION AS OF 0")[0]
-m["fact_v0"] = {"rows": r["c"], "units": r["u"], "revenue": float(r["rev"])}  # los mismos totales en la versión 0
-m["history"] = [{"v": r["version"], "op": r["operation"],  # qué insertó y actualizó cada escritura
-                 "ins": r["operationMetrics"].get("numTargetRowsInserted"),
-                 "upd": r["operationMetrics"].get("numTargetRowsUpdated")}
-                for r in q("DESCRIBE HISTORY gold.fact_sales")]
+registrar_cargas("gold.fact_sales", con_importes=True)  # pone el registro al día, por si una ejecución se cortó antes de anotar
+registrar_cargas("silver.orders")
+cargas = lambda tabla: q(f"SELECT * FROM gold.load_log WHERE tabla = '{tabla}' ORDER BY version DESC")  # las cargas anotadas de una tabla, de la más reciente a la más antigua
+r = [c for c in cargas("gold.fact_sales") if c["operacion"] != "MERGE"][-1]
+m["fact_v0"] = {"rows": r["filas"], "units": r["unidades"], "revenue": float(r["revenue"])}  # los totales de la primera carga completa, según el registro
+m["history"] = [{"v": c["version"], "op": c["operacion"], "ins": c["insertadas"], "upd": c["actualizadas"]} for c in cargas("gold.fact_sales")]  # qué insertó y actualizó cada escritura
 m["by_category"] = {r["category"]: float(r["rev"]) for r in q("""SELECT dp.category, round(SUM(f.revenue),2) rev FROM gold.fact_sales f
     JOIN gold.dim_products dp ON f.product_code = dp.product_code GROUP BY dp.category""")}
 m["by_month"] = {str(r["m"])[:7]: float(r["rev"]) for r in q("SELECT date_trunc('MONTH', date) m, round(SUM(revenue),2) rev FROM gold.fact_sales GROUP BY 1")}
@@ -44,14 +44,12 @@ m["fact_orphans"] = {  # ventas que apuntan a una dimensión inexistente: debe s
   "date": q("SELECT COUNT(*) c FROM gold.fact_sales f LEFT ANTI JOIN gold.dim_date d ON f.date=d.date")[0]["c"]}
 m["fact_dup_keys"] = q("SELECT COUNT(*) c FROM (SELECT 1 FROM gold.fact_sales GROUP BY order_id, date, customer_code, product_code HAVING COUNT(*)>1)")[0]["c"]  # ventas repetidas: debe ser 0
 m["dim_products_dup_code"] = q("SELECT COUNT(*) c FROM (SELECT 1 FROM gold.dim_products GROUP BY product_code HAVING COUNT(*)>1)")[0]["c"]
-m["silver_history"] = [{"v": r["version"], "op": r["operation"],
-                        "ins": r["operationMetrics"].get("numTargetRowsInserted"),
-                        "upd": r["operationMetrics"].get("numTargetRowsUpdated")}
-                       for r in q("DESCRIBE HISTORY silver.orders")]
+m["silver_history"] = [{"v": c["version"], "op": c["operacion"], "ins": c["insertadas"], "upd": c["actualizadas"]} for c in cargas("silver.orders")]
 m["silver_dup_keys"] = q("SELECT COUNT(*) c FROM (SELECT 1 FROM silver.orders GROUP BY order_id, order_placement_date, customer_id, product_code HAVING COUNT(*)>1)")[0]["c"]  # órdenes repetidas en Silver: debe ser 0
 m["quarantine"] = {}  # filas en cuarentena por archivo y motivo
 for r in q("SELECT file_name, motivo, COUNT(*) c FROM silver.orders_quarantine GROUP BY file_name, motivo"):
     m["quarantine"].setdefault(r["file_name"], {})[r["motivo"]] = r["c"]
+m["malformed"] = {t: q(f"SELECT COUNT(_rescued_data) c FROM bronze.{t}")[0]["c"] for t in ["customers", "products", "gross_price", "orders"]}  # filas que no encajaron en el esquema, por tabla de Bronze
 print(json.dumps(m, indent=1))
 
 # COMMAND ----------
