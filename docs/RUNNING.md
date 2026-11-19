@@ -35,7 +35,7 @@ To start from scratch, `99_reset_demo` drops the tables and Auto Loader's memory
 ## Compute, job, dashboard and notebook comments
 
 - **Compute:** serverless or a single-node cluster. If you create the cluster by hand, choose "Single node": a cluster with 0 workers without that mode starts with no executors and the notebooks hang.
-- **Job with the bundle:** `databricks bundle deploy -t dev` creates the job from `databricks.yml`, on serverless, and `databricks bundle run -t dev fmcg_medallion_pipeline` runs it. `dev` writes to the `fmcg_dev` catalog and `prod` to `fmcg`; to point at another one, add `--var catalog=<catalog>` to both commands.
+- **Job with the bundle:** `databricks bundle deploy -t dev` creates the job from `databricks.yml`, on serverless, and `databricks bundle run -t dev fmcg_medallion_pipeline` runs it. `dev` writes to the `fmcg_dev` catalog and `prod` to `fmcg`: create the one you will use first and upload the CSV files to its Volume (`dbfs:/Volumes/<catalog>/landing/raw`). To point at another one, add `--var catalog=<catalog>` to both commands.
 - **Job with JSON:** it is defined for an existing cluster. In `jobs/fmcg-medallion-pipeline.json`, replace `<CARPETA_DEL_PROYECTO>` (project folder) (for example `/Users/<your_user>/fmcg-medallion`) and `<ID_DE_TU_CLUSTER>` (your cluster id) and create it with `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
 - **Dashboard:** import `dashboard/fmcg-ventas-gold.lvdash.json` from Workspace → Import and assign it a SQL warehouse.
 - **Comments:** `python3 tools/comentar_notebooks.py --quitar` removes the guiding comments from the notebooks without touching the code; without the argument, it puts them back.

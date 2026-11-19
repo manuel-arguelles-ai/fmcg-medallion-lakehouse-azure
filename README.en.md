@@ -313,11 +313,11 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both. Each bundle target writes to its own catalog: `prod` to `fmcg` (deployed and run from GitHub) and `dev` to `fmcg_dev`, which must be created first and was not created in this project: `dev` was tested pointing at `fmcg` with `--var catalog=fmcg`.
+- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both. Each bundle target writes to its own catalog: `prod` to `fmcg` (deployed and run from GitHub) and `dev` to `fmcg_dev`. Each catalog must be created first, with its CSV files in its own Volume. `dev` was run end to end from the CLI on `fmcg_dev`, with 66 of 66 checks, without writing to `fmcg`.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
 - **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities.
 
-Next steps: validation with relative rules between loads, detection of rows with extra columns, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, creating and testing the `dev` catalog and SCD type 2 on customers.
+Next steps: validation with relative rules between loads, detection of rows with extra columns, quality expectations with Lakeflow Declarative Pipelines, alerts on failure and SCD type 2 on customers.
 
 The full list is in [`docs/DESIGN.md`](docs/DESIGN.md#limitations-and-next-steps).
 

@@ -311,11 +311,11 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Cada entorno del bundle escribe en su catálogo: `prod` en `fmcg` (desplegado y ejecutado desde GitHub) y `dev` en `fmcg_dev`, que hay que crear antes y que en este proyecto no se creó: `dev` se probó apuntando a `fmcg` con `--var catalog=fmcg`.
+- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Cada entorno del bundle escribe en su catálogo: `prod` en `fmcg` (desplegado y ejecutado desde GitHub) y `dev` en `fmcg_dev`. Cada catálogo hay que crearlo antes, con sus CSV en su propio Volume. `dev` se ejecutó completo desde la CLI sobre `fmcg_dev`, con 66 de 66 comprobaciones, sin escribir en `fmcg`.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
 
-Siguientes pasos: validación con reglas relativas entre cargas, detección de filas con columnas de más, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.
+Siguientes pasos: validación con reglas relativas entre cargas, detección de filas con columnas de más, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos y SCD tipo 2 en clientes.
 
 La lista completa está en [`docs/DISENO.md`](docs/DISENO.md#limitaciones-y-siguientes-pasos).
 
