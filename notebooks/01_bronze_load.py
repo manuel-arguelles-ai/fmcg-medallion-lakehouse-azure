@@ -88,7 +88,7 @@ bronze = spark.table(bronze_table)
 n_nuevas = bronze.filter(F.col("read_timestamp") >= F.lit(inicio).cast("timestamp")).count()  # las filas que entraron en esta ejecución
 if n_nuevas > 0:
     spark.sql(f"ALTER TABLE {bronze_table} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)")  # deja registrados los cambios fila por fila
-print("Filas nuevas en esta ejecución:", n_nuevas, "| filas en la tabla:", bronze.count())  # cifra de control: debe coincidir con la lámina
+print("Filas nuevas en esta ejecución:", n_nuevas, "| filas en la tabla:", bronze.count())  # cifra de control: la validación la compara con lo esperado
 if n_nuevas == 0:
     print("Sin archivos nuevos en landing: nada que cargar")
 

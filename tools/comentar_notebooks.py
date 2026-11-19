@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Comentarios orientativos de los notebooks del taller.
+"""Comentarios orientativos de los notebooks del proyecto.
 
     python3 tools/comentar_notebooks.py            # los agrega (no cambia el código: se comprueba con el AST)
     python3 tools/comentar_notebooks.py --quitar   # los elimina y deja los notebooks como estaban
@@ -81,7 +81,7 @@ A = {
     (".toTable(bronze_table)", "agrega las filas a la tabla; la crea si no existe"),
     (".awaitTermination())", "espera a que la carga termine antes de seguir"),
     ("n_nuevas =", "las filas que entraron en esta ejecución"),
-    ('print("Filas nuevas', "cifra de control: debe coincidir con la lámina"),
+    ('print("Filas nuevas', "cifra de control: la validación la compara con lo esperado"),
     ('spark.sql(f"ALTER TABLE {bronze_table} SET TBLPROPERTIES', "deja registrados los cambios fila por fila"),
     ('pendientes = bronze.filter', "solo lo que entró por la carga incremental"),
     ("ya_en_paso =", "lo más reciente que la tabla de paso ya contiene"),
@@ -222,7 +222,7 @@ A = {
 "07_gold_fact_full_load": ([
     ('df = spark.sql(f"""', "arma la tabla de ventas: una fila por línea de orden, con su precio y su revenue"),
     ("fact_table =", "guarda fact_sales completa (carga inicial) y declara que ninguna venta puede quedar sin precio"),
-    ("SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity)", "totales de control: deben coincidir con la lámina"),
+    ("SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity)", "totales de control de la carga inicial"),
 ], [
     ('print("fact rows:"', "cifra de control: 4.511"),
     ('.mode("overwrite")', "la carga inicial crea la versión 0 de la tabla"),

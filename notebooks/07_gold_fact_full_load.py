@@ -52,7 +52,7 @@ print("OK →", fact_table)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- QUÉ HACE: totales de control: deben coincidir con la lámina
+# MAGIC -- QUÉ HACE: totales de control de la carga inicial
 # MAGIC SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity) AS units, COUNT(*) AS order_lines
 # MAGIC -- esperado: 648.109,79 · 92.491 · 4.511
 # MAGIC FROM gold.fact_sales;

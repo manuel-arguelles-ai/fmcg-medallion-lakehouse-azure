@@ -9,6 +9,9 @@ on:
     branches: [main, v2]
     paths: ["notebooks/**", "databricks.yml", ".github/workflows/deploy.yml"]
 
+permissions:
+  contents: read
+
 concurrency: despliegue
 
 jobs:
@@ -31,7 +34,7 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.cred.outputs.listo == 'si'
-      - uses: databricks/setup-cli@main
+      - uses: databricks/setup-cli@a8fd94e7ec7c5693ddefb50bbc563832e236bb29  # v0.288.0
         if: steps.cred.outputs.listo == 'si'
         with:
           version: 0.288.0

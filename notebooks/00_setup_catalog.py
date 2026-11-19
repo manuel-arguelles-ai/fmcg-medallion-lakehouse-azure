@@ -52,4 +52,4 @@ print("catálogo en uso:", catalog)
 # MAGIC ```
 # MAGIC databricks fs cp -r data/landing dbfs:/Volumes/<catálogo>/landing/raw
 # MAGIC ```
-# MAGIC Cada CSV debe quedar en `raw/<initial|incremental>/<fuente>/landing/`. En el taller los archivos ya están subidos: en vivo solo se leen.
+# MAGIC Cada CSV debe quedar en `raw/<initial|incremental>/<fuente>/landing/`. El pipeline solo los lee: subirlos es un paso previo (ver el README).

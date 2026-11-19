@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC ## 08 · Gold fact — INCREMENTAL con Delta MERGE ⭐
-# MAGIC El clímax del taller. Llegó un archivo nuevo a `incremental/`; ya pasó por Bronze (notebook 01, `load_mode=incremental`) y Silver (notebook 05, `load_mode=incremental`). Ahora hacemos **MERGE** contra `fact_sales`: lo que ya existe y cambió se actualiza, lo nuevo se inserta. Correrlo dos veces produce el mismo resultado: **idempotencia**.
+# MAGIC La pieza central del proyecto. Llegó un archivo nuevo a `incremental/`; ya pasó por Bronze (notebook 01, `load_mode=incremental`) y Silver (notebook 05, `load_mode=incremental`). Ahora hacemos **MERGE** contra `fact_sales`: lo que ya existe y cambió se actualiza, lo nuevo se inserta. Correrlo dos veces produce el mismo resultado: **idempotencia**.
 
 # COMMAND ----------
 

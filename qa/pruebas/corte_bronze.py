@@ -18,6 +18,7 @@ antes = spark.table(bronze_table).count()
 
 (spark.readStream.format("cloudFiles")
    .option("cloudFiles.format", "csv").option("header", True)
+   .option("rescuedDataColumn", "_rescued_data")
    .schema("order_id INT, order_placement_date STRING, customer_id STRING, product_id STRING, order_qty INT")
    .load(landing_path)
    .withColumn("read_timestamp", F.current_timestamp())
