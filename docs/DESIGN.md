@@ -35,6 +35,6 @@
 - **The price list only covers January to June 2026.** A later order would end up with a null price and revenue; validation counts them, but there is no rule for that case.
 - **The job is a linear chain**, although the four Bronze loads are independent and could run in parallel.
 - **The rules "confirmed by the business"** (the four cities and the highest price) are assumptions of the case: the data is synthetic.
-- **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` applied without measuring its effect (below 5,000 rows no difference is expected), Change Data Feed enabled with no consumer, calendar fixed to 2026 and the catalog name written out in the SQL cells.
+- **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` applied without measuring its effect (below 5,000 rows no difference is expected), Change Data Feed enabled with no consumer and calendar fixed to 2026.
 
 Next steps: validation with relative rules between loads that does not depend on table history, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, creating and testing the `dev` catalog and SCD type 2 on customers.
