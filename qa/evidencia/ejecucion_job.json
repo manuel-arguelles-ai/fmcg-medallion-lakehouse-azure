@@ -1,0 +1,77 @@
+{
+ "estado": "SUCCESS",
+ "duracion_s": 231,
+ "duracion": "3 min 51 s",
+ "computo": {
+  "runtime": "16.4.x-scala2.13",
+  "tipo_de_nodo": "Standard_D4ds_v7",
+  "workers": 0,
+  "modo": "nodo único"
+ },
+ "tareas": {
+  "t01_orders": {
+   "estado": "SUCCESS",
+   "segundos": 12
+  },
+  "t05_orders": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t08_fact_incr": {
+   "estado": "SUCCESS",
+   "segundos": 19
+  },
+  "t01_customers": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t02_customers": {
+   "estado": "SUCCESS",
+   "segundos": 14
+  },
+  "t01_orders_incr": {
+   "estado": "SUCCESS",
+   "segundos": 11
+  },
+  "t00_setup": {
+   "estado": "SUCCESS",
+   "segundos": 10
+  },
+  "t98_validacion": {
+   "estado": "SUCCESS",
+   "segundos": 20
+  },
+  "t01_pricing": {
+   "estado": "SUCCESS",
+   "segundos": 12
+  },
+  "t05_orders_incr": {
+   "estado": "SUCCESS",
+   "segundos": 17
+  },
+  "t06_dims": {
+   "estado": "SUCCESS",
+   "segundos": 20
+  },
+  "t03_products": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t09_optimize": {
+   "estado": "SUCCESS",
+   "segundos": 17
+  },
+  "t04_pricing": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t07_fact_full": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t01_products": {
+   "estado": "SUCCESS",
+   "segundos": 11
+  }
+ }
+}

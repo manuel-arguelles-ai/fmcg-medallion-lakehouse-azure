@@ -1,6 +1,6 @@
 # FMCG Medallion Lakehouse en Azure Databricks
 
-[![verificacion](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml/badge.svg)](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml)
+[![CI](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml/badge.svg)](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml)
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
@@ -12,7 +12,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 |---|---|
 | **Resultado** | 13 tablas Delta en tres capas (más dos de paso para el lote nuevo) · 4.786 líneas de venta · US$ 684.393,99 de revenue · 50 de 50 cifras verificadas |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · PySpark · Spark SQL · Lakeflow Jobs · AI/BI Dashboards · ADLS Gen2 |
-| **Tiempo de ejecución** | Unos 4 minutos de principio a fin con el job en un cluster de un solo nodo de 4 núcleos (3 min 51 s en la última ejecución) |
+| **Tiempo de ejecución** | Unos 4 minutos de principio a fin con el job en un cluster de un solo nodo de 4 núcleos ([3 min 51 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
 | **Datos** | Sintéticos y reproducibles: 5 archivos CSV, 5.954 filas, generados con semilla fija |
 
 ![Dashboard «FMCG · Ventas (Gold)»](docs/img/dashboard.png)
@@ -20,8 +20,10 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 **Lo que demuestra este proyecto**
 
 - **Carga incremental que no duplica:** un `MERGE` con llave de negocio que, ejecutado dos veces con el mismo lote, inserta 0 y actualiza 0.
-- **Cifras que se pueden defender:** un cálculo independiente en Python puro reproduce las 50 cifras de control, y un flujo automático lo comprueba en cada cambio.
-- **Criterio ante datos malos:** cada caso tiene una regla explícita (corregir, marcar o descartar) y su motivo.
+- **Cifras verificadas:** un cálculo independiente en Python puro reproduce las 50 cifras de control, y un flujo automático lo comprueba en cada cambio.
+- **Reglas explícitas para los datos malos:** cada caso se corrige, se marca o se descarta, y está escrito por qué.
+
+**Para verlo sin ejecutar nada:** la [comparación de las 50 cifras](qa/evidencia/comparacion.txt), el [registro de la última ejecución](qa/evidencia/ejecucion_job.json) con la duración de cada tarea, la tabla de [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) y la [última verificación automática](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
 
 ## Contenido
 
@@ -29,7 +31,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 
 ## El problema
 
-Una distribuidora recibe cada mes cuatro archivos de sus sistemas: clientes, productos, lista de precios y órdenes. Llegan como llegan los datos en el trabajo real:
+Una distribuidora recibe cada mes cuatro archivos de sus sistemas: clientes, productos, lista de precios y órdenes. Los archivos traen estos problemas:
 
 | Fuente | Filas | Qué trae mal |
 |---|---:|---|
@@ -40,6 +42,8 @@ Una distribuidora recibe cada mes cuatro archivos de sus sistemas: clientes, pro
 | `orders` (lote nuevo) | 330 | Lo mismo, más 20 correcciones de cantidad sobre órdenes que ya existen |
 
 Estas son las cifras de los archivos tal como llegan. Más abajo, [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) muestra cuántas filas afecta cada regla: no siempre coinciden, porque una misma fila puede tener dos problemas y solo cuenta en la primera regla que la alcanza.
+
+Las ciudades (Bengaluru, Hyderabad, Nueva Delhi) y las categorías de producto vienen del proyecto original, que es de la India.
 
 El negocio pregunta cuánto se vendió, de qué categoría y cómo evoluciona mes a mes. Para responder con cifras confiables hay que decidir qué hacer con cada dato malo, y poder demostrar que el resultado es correcto.
 
@@ -70,6 +74,11 @@ Los archivos llegan a un Volume de Unity Catalog, que en Azure es un contenedor 
 
 ## Stack
 
+Azure Databricks con Unity Catalog, Delta Lake sobre ADLS Gen2, PySpark y Spark SQL, Lakeflow Jobs y AI/BI Dashboards.
+
+<details>
+<summary>Ver la tecnología de cada capa y para qué se usa</summary>
+
 | Capa | Tecnología | Para qué |
 |---|---|---|
 | Plataforma | Azure Databricks (Premium), DBR 16.4 LTS y serverless | Cómputo y entorno de trabajo |
@@ -81,6 +90,8 @@ Los archivos llegan a un Volume de Unity Catalog, que en Azure es un contenedor 
 | Orquestación | Lakeflow Jobs | 16 tareas encadenadas con parámetros |
 | Consumo | AI/BI Dashboards (Lakeview) | Indicadores de ventas |
 | Verificación | Python puro, sin Spark | Cálculo independiente de las cifras esperadas |
+
+</details>
 
 ## Modelo de datos
 
@@ -142,6 +153,11 @@ Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y no
 
 ## El pipeline, capa por capa
 
+Catorce notebooks numerados en orden de ejecución: `00` prepara el catálogo, `01` carga Bronze, `02` a `05` limpian en Silver, `06` a `08` construyen Gold y `09` optimiza. Están en [`notebooks/`](notebooks/).
+
+<details>
+<summary>Ver qué hace cada notebook y cuántas filas entran y salen</summary>
+
 | Notebook | Qué hace | Entra → sale |
 |---|---|---|
 | [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Crea el catálogo, los esquemas y el Volume | — |
@@ -156,6 +172,8 @@ Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y no
 | [`09_optimize_and_kpis`](notebooks/09_optimize_and_kpis.py) | `OPTIMIZE ZORDER`, consulta de una versión anterior y las consultas del dashboard | — |
 | [`98_validacion`](notebooks/98_validacion.py) | Extrae las cifras reales de las tablas para compararlas | 50 cifras |
 | [`99_reset_demo`](notebooks/99_reset_demo.py) | Borra las tablas y devuelve los CSV a `landing/` | — |
+
+</details>
 
 Cada celda de código lleva un comentario que dice qué hace, y las líneas clave tienen una explicación al final.
 
@@ -201,7 +219,8 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 
 - **La cantidad queda fuera de la llave a propósito.** Las 20 correcciones del lote cambian la cantidad de una orden existente: con la cantidad en la llave serían 20 ventas nuevas, no 20 actualizaciones.
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
-- **Alcance de la garantía.** Silver y Gold son idempotentes por el `MERGE`; la condición de cambio solo está en Gold, y el de Silver reescribe todo lo que coincide aunque el resultado sea el mismo. En Bronze, la carga inicial reemplaza la tabla y el lote nuevo se agrega al histórico (`append`); para no repetir un archivo, se mueve de `landing/` a `processed/`. Si el job falla entre la escritura y el movimiento, ese archivo quedaría dos veces en el histórico de Bronze. No llega a Silver, porque el lote nuevo se lee de una tabla de paso que se reemplaza en cada carga, pero el control de archivos es manual; Auto Loader lo resolvería.
+- **Alcance de la garantía.** Silver y Gold son idempotentes por el `MERGE`; la condición de cambio solo está en Gold, y el de Silver reescribe todo lo que coincide aunque el resultado sea el mismo.
+- **Bronze no tiene esa garantía.** En Bronze, la carga inicial reemplaza la tabla y el lote nuevo se agrega al histórico (`append`); para no repetir un archivo, se mueve de `landing/` a `processed/`. Si el job falla entre la escritura y el movimiento, ese archivo quedaría dos veces en el histórico de Bronze. No llega a Silver, porque el lote nuevo se lee de una tabla de paso que se reemplaza en cada carga, pero el control de archivos es manual; Auto Loader lo resolvería.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
 |---|---|
@@ -212,8 +231,6 @@ Cada escritura crea una versión de la tabla, y cualquiera se puede volver a con
 ![Consulta de la versión 0 de fact_sales](docs/img/nb-timetravel.png)
 
 ## Verificación
-
-La pregunta que este proyecto responde con evidencia es «¿cómo sabes que los números están bien?».
 
 1. [`qa/oraculo.py`](qa/oraculo.py) recalcula desde los CSV, en Python puro y sin Spark, todo lo que el pipeline debe producir. El resultado está en [`qa/esperado.json`](qa/esperado.json).
 2. El notebook `98_validacion` extrae las cifras reales de las tablas.
@@ -288,8 +305,7 @@ El paso a paso notebook por notebook, las opciones de cómputo y cómo crear el 
 ├── dashboard/     definición del dashboard de ventas
 ├── tools/         comentar_notebooks.py
 ├── docs/          guía de ejecución detallada y capturas del README
-├── .github/       verificación automática en cada cambio
-└── deck/          láminas con las que se presentó el proyecto en un taller; no forman parte del pipeline
+└── .github/       verificación automática en cada cambio
 ```
 
 ## Limitaciones y siguientes pasos
@@ -317,7 +333,7 @@ Este proyecto parte de [databricks-medallion-lakehouse-fmcg](https://github.com/
 | | Verificación contra un cálculo independiente (50 cifras) |
 | | Job de 16 tareas, dashboard, notebook de reset y notebooks comentados |
 
-Se presentó en el taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (noviembre de 2026), construido con Claude como copiloto: el asistente escribió buena parte del código y las decisiones de diseño y la verificación fueron humanas. Las láminas están en [`deck/`](deck/).
+Se presentó en el taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (noviembre de 2026), construido con Claude como copiloto: el asistente escribió buena parte del código y las decisiones de diseño y la verificación fueron humanas. Las láminas del taller están en la rama [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck).
 
 **Manuel Argüelles** · AI Analytics Engineer · [LinkedIn](https://www.linkedin.com/in/manuel-arguelles-ai/) · [analizodatos.com](https://analizodatos.com)
 
