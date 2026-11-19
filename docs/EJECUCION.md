@@ -26,16 +26,17 @@ Orden de ejecución:
 6. `05_silver_orders` con `load_mode = incremental`
 7. `08_gold_fact_incremental`, `09_optimize_and_kpis`
 
-Al terminar, ejecuta `98_validacion` y compara su salida con `python3 qa/comparar.py` (ver [Verificación](../README.md#verificación)).
+Al terminar, ejecuta `98_validacion`: compara las cifras y falla si alguna no coincide.
 
 Los parámetros se eligen en los desplegables de la parte superior de cada notebook (`data_source` y `load_mode`).
 
-Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. Ejecútalo siempre antes de repetir el pipeline: sin archivos en `landing/`, Bronze termina sin cargar nada, y la consulta de la versión 0 de `fact_sales` supone que esa versión es la carga inicial.
+Para empezar desde cero, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. No hace falta para repetir el pipeline: sin archivos nuevos, Bronze no carga nada y el resto deja las mismas cifras.
 
 ## Cómputo, job, dashboard y comentarios de los notebooks
 
 - **Cómputo:** serverless o un cluster de un solo nodo. Si creas el cluster a mano, elige «Nodo único»: un cluster con 0 workers sin ese modo arranca sin ejecutores y los notebooks se quedan colgados.
-- **Job:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` (por ejemplo `/Users/<tu_usuario>/fmcg-medallion`) y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
+- **Job con bundle:** `databricks bundle deploy -t dev --var cluster_id=<ID_DE_TU_CLUSTER>` crea el job a partir de `databricks.yml`, y `databricks bundle run -t dev fmcg_medallion_pipeline` lo ejecuta.
+- **Job con JSON:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` (por ejemplo `/Users/<tu_usuario>/fmcg-medallion`) y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
 - **Dashboard:** importa `dashboard/fmcg-ventas-gold.lvdash.json` desde Workspace → Importar y asígnale un SQL warehouse.
 - **Comentarios:** `python3 tools/comentar_notebooks.py --quitar` elimina los comentarios orientativos de los notebooks sin tocar el código; sin el argumento, los vuelve a poner.
 - **Datos:** `python3 data/gen_data.py` regenera los mismos CSV (semilla fija).

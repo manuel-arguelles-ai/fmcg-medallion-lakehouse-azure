@@ -12,20 +12,20 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 
 | | |
 |---|---|
-| **Result** | 13 Delta tables across three layers (plus two staging tables for the new batch) · 4,786 sales lines · US$ 684,393.99 in revenue · 50 of 50 figures verified |
+| **Result** | 13 Delta tables across three layers (plus two staging tables and one quarantine table) · 4,786 sales lines · US$ 684,393.99 in revenue · 60 of 60 checks inside the job |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · PySpark · Spark SQL · Lakeflow Jobs · AI/BI Dashboards · ADLS Gen2 |
-| **Run time** | About 4 minutes end to end with the job on a 4-core single-node cluster that is already running ([3 min 51 s in the latest run](qa/evidencia/ejecucion_job.json)) |
+| **Run time** | About 4 minutes end to end with the job on a 4-core single-node cluster that is already running ([4 min 5 s in the latest run](qa/evidencia/ejecucion_job.json)) |
 | **Data** | Synthetic and reproducible: 5 CSV files, 5,954 rows, generated with a fixed seed |
 
 ![Dashboard "FMCG · Ventas (Gold)"](docs/img/dashboard.png)
 
 **What this project demonstrates**
 
-- **An incremental load that does not duplicate:** a `MERGE` on a business key that, run twice with the same batch, inserts 0 and updates 0.
-- **Verified figures:** an independent calculation in plain Python reproduces the 50 control figures, and an automated workflow checks on every change that the calculation still gives the same result and that it matches the stored output of the latest run.
-- **Explicit rules for bad data:** each case is fixed, flagged or dropped, and the reason is written down.
+- **An incremental load that does not duplicate:** a `MERGE` on a business key that, run twice with the same batch, inserts 0 and updates 0. The whole pipeline can be run again with no preparation.
+- **Verified figures:** an independent calculation in plain Python produces the control figures and the job fails by itself if any of them does not match; in addition, an automated workflow checks on every change that the calculation still gives the same result and that it matches the stored output of the latest run.
+- **Explicit rules for bad data:** each case is fixed, flagged or sent to a quarantine table with its reason.
 
-**To see it without running anything:** the [comparison of the 50 figures](qa/evidencia/comparacion.txt), the [record of the latest run](qa/evidencia/ejecucion_job.json) with the duration of each task, the table of [what happens to each bad record](#what-happens-to-each-bad-record) and the [latest automated check](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
+**To see it without running anything:** the [comparison of the 60 checks](qa/evidencia/comparacion.txt), the [record of the latest run](qa/evidencia/ejecucion_job.json) with the duration of each task, the table of [what happens to each bad record](#what-happens-to-each-bad-record) and the [latest automated check](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
 
 The notebooks, their comments and the screenshots are in Spanish.
 
@@ -62,7 +62,7 @@ flowchart LR
     G --> D["Dashboard"]
 ```
 
-The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and extracts 50 control figures, which are then compared, outside the job, against an independent calculation.
+The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and ends by comparing 60 control figures against an independent calculation: if any of them differs, the job fails.
 
 Each layer answers a different question:
 
@@ -165,16 +165,16 @@ Fourteen notebooks; the numbered ones go in run order: `00` prepares the catalog
 | Notebook | What it does | In → out |
 |---|---|---|
 | [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Creates the catalog, the schemas and the Volume | — |
-| [`01_bronze_load`](notebooks/01_bronze_load.py) | A single parameterized notebook for the 4 sources and both load modes. Adds source file and read timestamp, and moves the file to `processed/` | 196 · 66 · 312 · 5,050 |
+| [`01_bronze_load`](notebooks/01_bronze_load.py) | A single parameterized notebook for the 4 sources and both load modes. Declared schema, source file and read timestamp on every row, and tracking by file name so the same file is not loaded twice | 196 · 66 · 312 · 5,050 |
 | [`02_silver_customers`](notebooks/02_silver_customers.py) | Removes duplicates, normalizes names, fixes cities with a dictionary and an allow-list | 196 → 184 |
 | [`03_silver_products`](notebooks/03_silver_products.py) | Normalizes category and name, derives the commercial division, generates a deterministic code per product (SHA-256 of the name) | 66 → 60 |
 | [`04_silver_pricing`](notebooks/04_silver_pricing.py) | Converts the month to a date and keeps a single price per product and month | 312 → 288 |
-| [`05_silver_orders`](notebooks/05_silver_orders.py) | Drops orders without quantity, flags invalid customers, normalizes dates, removes repeats and drops unknown products | 5,050 → 4,757 → 4,709 → 4,511 |
+| [`05_silver_orders`](notebooks/05_silver_orders.py) | Applies the declared quality rules and sends the rows that fail them to quarantine, flags invalid customers, normalizes dates and keeps one row per order (last one wins) | 5,050 → 4,757 → 4,709 → 4,511 |
 | [`06_gold_dims`](notebooks/06_gold_dims.py) | Builds the four dimensions | 365 · 185 · 60 · 288 |
 | [`07_gold_fact_full_load`](notebooks/07_gold_fact_full_load.py) | Initial load of `fact_sales` with price and revenue | 4,511 rows · US$ 648,109.79 |
 | [`08_gold_fact_incremental`](notebooks/08_gold_fact_incremental.py) | Merges the new batch with `MERGE` and demonstrates idempotency | 4,511 → 4,786 |
 | [`09_optimize_and_kpis`](notebooks/09_optimize_and_kpis.py) | `OPTIMIZE ZORDER`, a query on an earlier version and the dashboard queries | — |
-| [`98_validacion`](notebooks/98_validacion.py) | Extracts the actual figures from the tables for comparison | 50 figures |
+| [`98_validacion`](notebooks/98_validacion.py) | Extracts the actual figures, compares them with the expected ones and fails if any differs | 60 checks |
 | [`99_reset_demo`](notebooks/99_reset_demo.py) | Drops the tables and returns the CSV files to `landing/` | — |
 
 </details>
@@ -189,14 +189,14 @@ When it finishes, the catalog looks like this (the two `staging_orders` are the 
 
 | Case | Rows | What is done | Why |
 |---|---:|---|---|
-| Order without quantity | 293 | Dropped | Without a quantity there is no sale to measure |
-| Repeated order | 48 | One is kept | Same order, date, customer, product and quantity. The file has 50; the other 2 had no quantity and were already dropped in the previous step |
+| Order without quantity | 293 | Sent to quarantine | Without a quantity there is no sale to measure |
+| Repeated order | 48 | The last one read is kept | Same order, date, customer and product. The file has 50; the other 2 had no quantity and were already dropped in the previous step |
 | Order with an invalid customer | 230 | Kept, with customer `999999` | The sale happened; only the buyer is unknown. The figure is from the final table, new batch included; the initial file has 256 and part of those rows are dropped by another rule |
-| Order with an unknown product | 198 | Dropped | Without a product there is no price to compute revenue |
+| Order with an unknown product | 198 | Sent to quarantine | Without a product there is no price to compute revenue |
 | Product with a non-numeric identifier | 12 | Kept, with `product_id` `999999` | The product exists and is identified by `product_code`. All 12 share that `product_id`, so they have no price and no orders |
 | Customer without a valid city | 19 | 4 get a confirmed city (an assumption of the case) and 15 stay as "Sin ciudad" (no city) | No value is invented that nobody confirmed |
 
-The counts for orders without quantity, repeated orders and unknown products refer to the initial load and come from the counts printed by notebook `05`; the independent calculation checks the result of the chain (4,511), not each intermediate step. Dropped rows are counted at each step of the notebook, but they are not stored in a quarantine table.
+The counts for orders without quantity, repeated orders and unknown products refer to the initial load. The independent calculation produces them step by step (5,050 → 4,757 → 4,709 → 4,511) and the job checks the quarantined rows per file and reason: 293 and 198 from the initial file, 16 and 10 from the new batch.
 
 ## Incremental load and idempotency
 
@@ -221,8 +221,9 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 
 - **Quantity is left out of the key on purpose.** The 20 corrections in the batch change the quantity of an existing order: with quantity in the key they would be 20 new sales, not 20 updates.
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
-- **Scope of the guarantee.** Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0. Silver is idempotent by design, with no test of its own; the change condition exists only in Gold, and the Silver one rewrites everything that matches even though the result is the same.
-- **Bronze does not have that guarantee.** In Bronze, the initial load overwrites the table and the new batch is appended to the history; to avoid reloading a file, it is moved from `landing/` to `processed/`. If the job fails between the write and the move, that file would end up twice in the Bronze history. It does not reach Silver, because the new batch is read from a staging table that is overwritten on every load, but file tracking is manual; Auto Loader would solve it.
+- **Silver and Gold** use `MERGE` with a change condition: a row is only rewritten if its quantity (or its price) changed. Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0; validation also checks that, in both layers, every `MERGE` after the first one changed nothing.
+- **Bronze** does not reload a file whose name is already in the table, even if it reappears in `landing/` because an earlier run failed before moving it.
+- **Tested, not just designed:** a second full run without a reset, and another one with an already loaded file put back in `landing/`, ended with the same 60 checks; with an unexpected order added, the job ended in red and pointed at the 11 affected figures.
 
 | The `MERGE`, executed | Second run and table history |
 |---|---|
@@ -235,12 +236,12 @@ Every write creates a version of the table, and it can be queried again for as l
 ## Verification
 
 1. [`qa/oraculo.py`](qa/oraculo.py) recomputes from the CSV files, in plain Python and without Spark, everything the pipeline must produce. The result is in [`qa/esperado.json`](qa/esperado.json).
-2. The `98_validacion` notebook extracts the actual figures from the tables.
-3. 50 figures are compared: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` row counts, duplicate keys and sales without a dimension.
+2. The `98_validacion` notebook extracts the actual figures from the tables and compares them, inside the job, with the expected ones. If a single one differs, it raises an error and the run ends in red.
+3. There are 60 checks: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` history in Silver and in Gold, duplicate keys, sales without a dimension and quarantined rows per file and reason.
 
-Result: 50 of 50. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/). The same result was obtained in manual tests on serverless compute and with the `run_all` orchestrator; those are not recorded in the repository.
+Result: 60 of 60. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/).
 
-A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
+A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, checks that the validation notebook uses those same figures, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
 
 The independent calculation shares the business rules but not the engine. It detects implementation errors; it does not detect a badly chosen rule.
 
@@ -258,7 +259,7 @@ A Lakeflow job chains 16 tasks: setup, four Bronze loads with different paramete
 
 ![Job run: 16 tasks](docs/img/ui-corrida.png)
 
-The job definition is in [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medallion-pipeline.json) and the dashboard definition in [`dashboard/fmcg-ventas-gold.lvdash.json`](dashboard/fmcg-ventas-gold.lvdash.json).
+The job is defined as a Databricks Asset Bundle in [`databricks.yml`](databricks.yml) (and as JSON in [`jobs/`](jobs/fmcg-medallion-pipeline.json)); the dashboard definition is in [`dashboard/fmcg-ventas-gold.lvdash.json`](dashboard/fmcg-ventas-gold.lvdash.json).
 
 ## Design decisions
 
@@ -286,10 +287,9 @@ You need a Databricks workspace with Unity Catalog and permission to create a ca
    databricks fs ls dbfs:/Volumes/fmcg/landing/raw/initial/orders/landing   # must list orders_batch.csv
    ```
    It requires the [Databricks CLI](https://learn.microsoft.com/azure/databricks/dev-tools/cli/), authenticated (`databricks auth login`). You can also upload them from Catalog Explorer.
-4. **Run** `run_all`, which executes the whole pipeline in order.
-5. **Check:** run `98_validacion` and compare its output with `python3 qa/comparar.py` (see [Verification](#verification)).
+4. **Run** `run_all`, which executes the whole pipeline in order and ends with the validation: if a figure does not match, it fails.
 
-Before repeating the pipeline, run `99_reset_demo`: without that step, a second full run does not give the same result. The notebook-by-notebook walkthrough, the compute options and how to create the job and the dashboard are in [`docs/RUNNING.md`](docs/RUNNING.md).
+The pipeline can be run again with no preparation: a second full run leaves the same figures. `99_reset_demo` is only needed to start from scratch. The notebook-by-notebook walkthrough, the compute options and how to create the job and the dashboard are in [`docs/RUNNING.md`](docs/RUNNING.md).
 
 ## Repository structure
 
@@ -297,7 +297,8 @@ Before repeating the pipeline, run `99_reset_demo`: without that step, a second 
 ├── notebooks/     14 notebooks in Databricks source format (00–09, 98, 99, run_all, utilities)
 ├── data/          gen_data.py and the 5 generated CSV files (initial and incremental load)
 ├── qa/            oraculo.py (independent calculation), esperado.json (expected figures), comparar.py and evidencia/ from the latest run
-├── jobs/          definition of the 16-task job
+├── databricks.yml job definition as a Databricks Asset Bundle
+├── jobs/          the same definition as JSON
 ├── dashboard/     definition of the sales dashboard
 ├── tools/         utility to remove or restore the notebook comments
 ├── docs/          run guide, design decisions and limitations, and README screenshots
@@ -307,9 +308,9 @@ Before repeating the pipeline, run `99_reset_demo`: without that step, a second 
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Tracking of already loaded files is manual** (moving from `landing/` to `processed/`), and Bronze infers the schema. In production: Auto Loader or `COPY INTO`, with a declared schema.
+- **Tracking of already loaded files is by name:** it assumes the same name means the same content. It is not Auto Loader, which also handles schema evolution and large volumes.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
-- **The job does not fail if a figure is wrong:** it extracts the figures and the comparison runs outside. The automated check on GitHub covers reproducibility and the latest stored output; it does not run the pipeline.
+- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities. Deployment with the bundle is validated, but not automated from GitHub.
 
 Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.
 
@@ -325,7 +326,9 @@ This project starts from [databricks-medallion-lakehouse-fmcg](https://github.co
 | Silver cleaning rules | Reproducible synthetic data generator (the original ships no data) |
 | Incremental load with `MERGE` | Change condition and a repeatable idempotency proof |
 | | Self-contained model: the step that wrote to tables the original does not include was removed |
-| | Verification against an independent calculation (50 figures) |
+| | Verification against an independent calculation (60 checks) inside the job, which fails if a figure differs |
+| | Declared quality rules, quarantine table and table constraints |
+| | Ingestion with a declared schema and tracking of loaded files; pipeline re-runnable without a reset |
 | | 16-task job, dashboard, reset notebook and commented notebooks |
 
 It was presented at the charity workshop "Construye tu portafolio de datos End-to-End" by Datanilo Community (November 2026). The workshop slides (in Spanish) are in the [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck) branch.

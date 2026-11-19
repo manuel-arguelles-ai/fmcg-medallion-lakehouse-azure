@@ -1,7 +1,8 @@
 {
  "estado": "SUCCESS",
- "duracion_s": 231,
- "duracion": "3 min 51 s",
+ "duracion_s": 245,
+ "duracion": "4 min 5 s",
+ "fecha_utc": "2026-11-19 06:42",
  "computo": {
   "runtime": "16.4.x-scala2.13",
   "tipo_de_nodo": "Standard_D4ds_v7",
@@ -11,19 +12,19 @@
  "tareas": {
   "t01_orders": {
    "estado": "SUCCESS",
-   "segundos": 12
+   "segundos": 19
   },
   "t05_orders": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 17
   },
   "t08_fact_incr": {
    "estado": "SUCCESS",
-   "segundos": 19
+   "segundos": 17
   },
   "t01_customers": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 11
   },
   "t02_customers": {
    "estado": "SUCCESS",
@@ -31,7 +32,7 @@
   },
   "t01_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 11
+   "segundos": 14
   },
   "t00_setup": {
    "estado": "SUCCESS",
@@ -47,49 +48,54 @@
   },
   "t05_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 26
   },
   "t06_dims": {
    "estado": "SUCCESS",
-   "segundos": 20
+   "segundos": 17
   },
   "t03_products": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 12
   },
   "t09_optimize": {
    "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 19
   },
   "t04_pricing": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 11
   },
   "t07_fact_full": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 12
   },
   "t01_products": {
    "estado": "SUCCESS",
-   "segundos": 11
+   "segundos": 12
   }
  },
- "fecha_utc": "2026-11-19 04:52",
  "sha256_notebooks": {
   "00_setup_catalog.py": "c1645711f062b7ce",
-  "01_bronze_load.py": "82a77ce55349e4c2",
+  "01_bronze_load.py": "7e773592fc7c810b",
   "02_silver_customers.py": "13d242cb1d31eac5",
   "03_silver_products.py": "4d8ffa136d851ff1",
   "04_silver_pricing.py": "b320e43a5099cc6d",
-  "05_silver_orders.py": "fe4b7cce5f2d384b",
+  "05_silver_orders.py": "090a599c119cdf1f",
   "06_gold_dims.py": "21841b903eb5ab07",
-  "07_gold_fact_full_load.py": "e7f00e620e7c414e",
+  "07_gold_fact_full_load.py": "231b27771a3b19fa",
   "08_gold_fact_incremental.py": "e70e126861ac1676",
   "09_optimize_and_kpis.py": "13bb5a789bf055cb",
-  "98_validacion.py": "62d32527cc3eda1e",
+  "98_validacion.py": "97466b37bb848084",
   "99_reset_demo.py": "3edb71adb3189ff0",
-  "run_all.py": "8898c0a6d43dbfce",
+  "esperado.py": "83a03e76b4c67570",
+  "run_all.py": "158a117928bbd04d",
   "utilities.py": "38e651bff2251833"
  },
- "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella."
+ "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
+ "pruebas_adicionales": {
+  "re_ejecucion_sin_reset": "SUCCESS, 60 de 60",
+  "archivo_ya_cargado_devuelto_a_landing": "SUCCESS, 60 de 60, no se cargó dos veces",
+  "orden_inesperada_en_un_archivo_nuevo": "FAILED en t98_validacion, 11 cifras señaladas"
+ }
 }

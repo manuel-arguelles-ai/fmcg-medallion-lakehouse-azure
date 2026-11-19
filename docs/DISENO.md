@@ -25,12 +25,13 @@
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **El control de archivos ya cargados es manual** (mover de `landing/` a `processed/`), y Bronze infiere el esquema. En producción: Auto Loader o `COPY INTO`, con esquema declarado.
-- **Si un lote trae la misma orden con dos cantidades distintas, el `MERGE` falla** por coincidencia múltiple: no hay una regla de «gana la última». Al quitar duplicados tampoco se elige qué fila sobrevive.
+- **El control de archivos ya cargados es por nombre:** supone que el mismo nombre es el mismo contenido. No es Auto Loader, que además maneja evolución de esquema y volúmenes grandes.
+- **Si la misma orden llega dos veces en un mismo archivo con cantidades distintas**, gana la de mayor cantidad: entre archivos gana la leída al final, pero dentro de un archivo no hay un orden de llegada. En clientes y productos, al quitar duplicados no se elige qué fila sobrevive.
 - **Los 12 productos con identificador inválido comparten `product_id = 999999`.** Hoy no tienen precio ni órdenes; si llegara una orden con ese identificador, el cruce por `product_id` la multiplicaría por 12.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
-- **El job no falla si una cifra sale mal:** extrae las cifras y la comparación corre fuera. La verificación automática de GitHub revisa la reproducibilidad y la última salida guardada, no ejecuta el pipeline.
-- **Las reglas de calidad están en el código**, no declaradas como expectativas que el pipeline evalúe y reporte. El flujo automático comprueba la reproducibilidad de datos y cifras, pero no despliega ni ejecuta el pipeline en Databricks.
+- **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
+- **El despliegue no está automatizado:** el bundle (`databricks.yml`) está validado contra un workspace, pero no se desplegó ni se ejecuta desde GitHub; eso requiere un service principal y sus secretos.
+- **Las reglas de calidad están declaradas en el notebook** (un diccionario de reglas y restricciones `CHECK` en las tablas), no en un marco como Lakeflow Declarative Pipelines, que además llevaría el historial de cumplimiento. Solo las órdenes tienen cuarentena.
 - **La lista de precios solo cubre de enero a junio de 2026.** Una orden posterior quedaría con precio y revenue nulos; la validación los cuenta, pero no hay una regla para ese caso.
 - **El job es una cadena lineal**, aunque las cuatro cargas de Bronze son independientes y podrían correr en paralelo.
 - **Las reglas «confirmadas por negocio»** (las cuatro ciudades y el precio más alto) son supuestos del caso: los datos son sintéticos.

@@ -67,5 +67,33 @@
   "2026-05": 128821.44,
   "2026-04": 127435.37,
   "2026-06": 35667.5
+ },
+ "quality": {
+  "orders_initial": {
+   "llegan": 5050,
+   "sin_cantidad": 293,
+   "tras_sin_cantidad": 4757,
+   "tras_repetidas": 4709,
+   "producto_inexistente": 198,
+   "validas": 4511
+  },
+  "orders_incremental": {
+   "llegan": 330,
+   "sin_cantidad": 16,
+   "tras_sin_cantidad": 314,
+   "tras_repetidas": 305,
+   "producto_inexistente": 10,
+   "validas": 295
+  },
+  "quarantine": {
+   "orders_batch.csv": {
+    "sin_cantidad": 293,
+    "producto_inexistente": 198
+   },
+   "orders_incremental_batch.csv": {
+    "sin_cantidad": 16,
+    "producto_inexistente": 10
+   }
+  }
  }
 }

@@ -47,22 +47,28 @@
  },
  "history": [
   {
-   "v": 3,
+   "v": 4,
    "op": "OPTIMIZE",
    "ins": null,
    "upd": null
   },
   {
-   "v": 2,
+   "v": 3,
    "op": "MERGE",
    "ins": "0",
    "upd": "0"
   },
   {
-   "v": 1,
+   "v": 2,
    "op": "MERGE",
    "ins": "275",
    "upd": "20"
+  },
+  {
+   "v": 1,
+   "op": "ADD CONSTRAINT",
+   "ins": null,
+   "upd": null
   },
   {
    "v": 0,
@@ -93,5 +99,66 @@
   "date": 0
  },
  "fact_dup_keys": 0,
- "dim_products_dup_code": 0
+ "dim_products_dup_code": 0,
+ "silver_history": [
+  {
+   "v": 7,
+   "op": "ADD CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 6,
+   "op": "DROP CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 5,
+   "op": "ADD CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 4,
+   "op": "DROP CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 3,
+   "op": "MERGE",
+   "ins": "275",
+   "upd": "20"
+  },
+  {
+   "v": 2,
+   "op": "ADD CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 1,
+   "op": "ADD CONSTRAINT",
+   "ins": null,
+   "upd": null
+  },
+  {
+   "v": 0,
+   "op": "CREATE OR REPLACE TABLE AS SELECT",
+   "ins": null,
+   "upd": null
+  }
+ ],
+ "silver_dup_keys": 0,
+ "quarantine": {
+  "orders_batch.csv": {
+   "sin_cantidad": 293,
+   "producto_inexistente": 198
+  },
+  "orders_incremental_batch.csv": {
+   "sin_cantidad": 16,
+   "producto_inexistente": 10
+  }
+ }
 }

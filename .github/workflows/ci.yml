@@ -19,7 +19,11 @@ jobs:
           git diff --exit-code data/
       - name: El cálculo independiente reproduce las cifras esperadas
         run: python3 qa/oraculo.py | diff - qa/esperado.json
-      - name: La salida guardada de la última ejecución coincide en las 50 cifras
+      - name: El notebook de cifras esperadas está sincronizado con el cálculo independiente
+        run: |
+          python3 tools/sincronizar_validacion.py
+          git diff --exit-code notebooks/esperado.py
+      - name: La salida guardada de la última ejecución pasa todas las comprobaciones
         run: python3 qa/comparar.py qa/evidencia/salida_98.json
       - name: Los notebooks son Python válido y sus comentarios no alteran el código
         run: |

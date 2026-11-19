@@ -25,12 +25,13 @@
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Tracking of already loaded files is manual** (moving from `landing/` to `processed/`), and Bronze infers the schema. In production: Auto Loader or `COPY INTO`, with a declared schema.
-- **If a batch brings the same order with two different quantities, the `MERGE` fails** on multiple matches: there is no "last one wins" rule. Deduplication does not choose which row survives either.
+- **Tracking of already loaded files is by name:** it assumes the same name means the same content. It is not Auto Loader, which also handles schema evolution and large volumes.
+- **If the same order arrives twice in the same file with different quantities**, the larger quantity wins: across files the last one read wins, but within a file there is no arrival order. For customers and products, deduplication does not choose which row survives.
 - **The 12 products with an invalid identifier share `product_id = 999999`.** Today they have no price and no orders; if an order arrived with that identifier, the join on `product_id` would multiply it by 12.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
-- **The job does not fail if a figure is wrong:** it extracts the figures and the comparison runs outside. The automated check on GitHub covers reproducibility and the latest stored output; it does not run the pipeline.
-- **Quality rules live in the code**, not declared as expectations the pipeline evaluates and reports. The automated workflow checks that data and figures are reproducible, but it does not deploy or run the pipeline on Databricks.
+- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities.
+- **Deployment is not automated:** the bundle (`databricks.yml`) is validated against a workspace, but it was not deployed and it does not run from GitHub; that requires a service principal and its secrets.
+- **Quality rules are declared in the notebook** (a dictionary of rules and `CHECK` constraints on the tables), not in a framework such as Lakeflow Declarative Pipelines, which would also keep the compliance history. Only orders have a quarantine.
 - **The price list only covers January to June 2026.** A later order would end up with a null price and revenue; validation counts them, but there is no rule for that case.
 - **The job is a linear chain**, although the four Bronze loads are independent and could run in parallel.
 - **The rules "confirmed by the business"** (the four cities and the highest price) are assumptions of the case: the data is synthetic.

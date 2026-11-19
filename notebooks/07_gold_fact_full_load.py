@@ -36,13 +36,16 @@ display(df.limit(10))
 
 # COMMAND ----------
 
-# QUÉ HACE: guarda fact_sales completa (carga inicial)
+# QUÉ HACE: guarda fact_sales completa (carga inicial) y declara que ninguna venta puede quedar sin precio
 fact_table = f"{catalog}.{gold_schema}.fact_sales"
 (df.write.format("delta")
    .option("delta.enableChangeDataFeed", "true")
    .option("overwriteSchema", "true")
    .mode("overwrite")  # la carga inicial crea la versión 0 de la tabla
    .saveAsTable(fact_table))
+# restricción de la tabla: una venta sin precio no entra (ni ahora ni en los lotes siguientes)
+spark.sql(f"ALTER TABLE {fact_table} DROP CONSTRAINT IF EXISTS precio_no_nulo")
+spark.sql(f"ALTER TABLE {fact_table} ADD CONSTRAINT precio_no_nulo CHECK (price IS NOT NULL)")  # un lote con una venta sin precio falla en vez de publicar revenue nulo
 print("OK →", fact_table)
 
 # COMMAND ----------

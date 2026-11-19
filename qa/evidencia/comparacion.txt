@@ -1,52 +1,62 @@
-OK   bronze.customers | real: 196 | esperado: 196
-OK   bronze.products | real: 66 | esperado: 66
-OK   bronze.gross_price | real: 312 | esperado: 312
-OK   bronze.orders | real: 5380 | esperado: 5380
-OK   silver.customers | real: 184 | esperado: 184
-OK   silver.products | real: 60 | esperado: 60
-OK   silver.gross_price | real: 288 | esperado: 288
-OK   silver.orders | real: 4786 | esperado: 4786
-OK   gold.dim_date | real: 365 | esperado: 365
-OK   gold.dim_customers | real: 185 | esperado: 185
-OK   gold.dim_products | real: 60 | esperado: 60
-OK   gold.dim_pricing | real: 288 | esperado: 288
-OK   gold.fact_sales | real: 4786 | esperado: 4786
-OK   cities | real: {'Sin ciudad': 15, 'Bengaluru': 48, 'New Delhi': 51, 'Hyderabad': 70} | esperado: {'New Delhi': 51, 'Bengaluru': 48, 'Sin ciudad': 15, 'Hyderabad': 70}
-OK   categories | real: {'Recovery Dairy': 12, 'Energy Bars': 9, 'Healthy Snacks': 11, 'Electrolyte Mix': 8, 'Granola & Cereals': 9, 'Protein Bars': 11} | esperado: {'Granola & Cereals': 9, 'Electrolyte Mix': 8, 'Protein Bars': 11, 'Healthy Snacks': 11, 'Energy Bars': 9, 'Recovery Dairy': 12}
-OK   products_999999 | real: 12 | esperado: 12
-OK   orders_cust_999999 | real: 230 | esperado: 230
-OK   orders_null_dates | real: 0 | esperado: 0
-OK   orders_min_max | real: ['2026-01-01', '2026-06-15'] | esperado: ['2026-01-01', '2026-06-15']
-OK   fact_v0.rows | real: 4511 | esperado: 4511
-OK   fact_v0.units | real: 92491 | esperado: 92491
-OK   fact_v0.revenue | real: 648109.79 | esperado: 648109.79
-OK   fact_now.rows | real: 4786 | esperado: 4786
-OK   fact_now.units | real: 97986 | esperado: 97986
-OK   fact_now.revenue | real: 684393.99 | esperado: 684393.99
-OK   fact_now.null_price | real: 0 | esperado: 0
-OK   fact_now.orders | real: 4786 | esperado: 4786
-OK   by_category (claves) | real: ['Electrolyte Mix', 'Energy Bars', 'Granola & Cereals', 'Healthy Snacks', 'Protein Bars', 'Recovery Dairy'] | esperado: ['Electrolyte Mix', 'Energy Bars', 'Granola & Cereals', 'Healthy Snacks', 'Protein Bars', 'Recovery Dairy']
-OK   by_category.Electrolyte Mix | real: 92450.01 | esperado: 92450.01
-OK   by_category.Protein Bars | real: 164356.64 | esperado: 164356.64
-OK   by_category.Granola & Cereals | real: 82248.28 | esperado: 82248.28
-OK   by_category.Recovery Dairy | real: 168404.36 | esperado: 168404.36
-OK   by_category.Healthy Snacks | real: 77905.63 | esperado: 77905.63
-OK   by_category.Energy Bars | real: 99029.07 | esperado: 99029.07
-OK   by_month (claves) | real: ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06'] | esperado: ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']
-OK   by_month.2026-03 | real: 138641.13 | esperado: 138641.13
-OK   by_month.2026-01 | real: 130892.26 | esperado: 130892.26
-OK   by_month.2026-02 | real: 122936.29 | esperado: 122936.29
-OK   by_month.2026-05 | real: 128821.44 | esperado: 128821.44
-OK   by_month.2026-04 | real: 127435.37 | esperado: 127435.37
-OK   by_month.2026-06 | real: 35667.5 | esperado: 35667.5
-OK   merge 1 insertadas | real: 275 | esperado: 275
-OK   merge 1 actualizadas | real: 20 | esperado: 20
-OK   merge 2 (idempotencia) ins+upd | real: 0 | esperado: 0
-OK   nº de MERGE en historial | real: 2 | esperado: 2
-OK   huérfanos fact→dim customer | real: 0 | esperado: 0
-OK   huérfanos fact→dim product | real: 0 | esperado: 0
-OK   huérfanos fact→dim date | real: 0 | esperado: 0
-OK   llaves duplicadas en fact | real: 0 | esperado: 0
-OK   product_code duplicado en dim | real: 0 | esperado: 0
+OK    bronze.customers | real: 196 | esperado: 196
+OK    bronze.products | real: 66 | esperado: 66
+OK    bronze.gross_price | real: 312 | esperado: 312
+OK    bronze.orders | real: 5380 | esperado: 5380
+OK    silver.customers | real: 184 | esperado: 184
+OK    silver.products | real: 60 | esperado: 60
+OK    silver.gross_price | real: 288 | esperado: 288
+OK    silver.orders | real: 4786 | esperado: 4786
+OK    gold.dim_date | real: 365 | esperado: 365
+OK    gold.dim_customers | real: 185 | esperado: 185
+OK    gold.dim_products | real: 60 | esperado: 60
+OK    gold.dim_pricing | real: 288 | esperado: 288
+OK    gold.fact_sales | real: 4786 | esperado: 4786
+OK    cities | real: {'Sin ciudad': 15, 'Bengaluru': 48, 'New Delhi': 51, 'Hyderabad': 70} | esperado: {'New Delhi': 51, 'Bengaluru': 48, 'Sin ciudad': 15, 'Hyderabad': 70}
+OK    categories | real: {'Recovery Dairy': 12, 'Energy Bars': 9, 'Healthy Snacks': 11, 'Electrolyte Mix': 8, 'Granola & Cereals': 9, 'Protein Bars': 11} | esperado: {'Granola & Cereals': 9, 'Electrolyte Mix': 8, 'Protein Bars': 11, 'Healthy Snacks': 11, 'Energy Bars': 9, 'Recovery Dairy': 12}
+OK    products_999999 | real: 12 | esperado: 12
+OK    orders_cust_999999 | real: 230 | esperado: 230
+OK    orders_null_dates | real: 0 | esperado: 0
+OK    orders_min_max | real: ['2026-01-01', '2026-06-15'] | esperado: ['2026-01-01', '2026-06-15']
+OK    fact_v0.rows | real: 4511 | esperado: 4511
+OK    fact_v0.units | real: 92491 | esperado: 92491
+OK    fact_v0.revenue | real: 648109.79 | esperado: 648109.79
+OK    fact_now.rows | real: 4786 | esperado: 4786
+OK    fact_now.units | real: 97986 | esperado: 97986
+OK    fact_now.revenue | real: 684393.99 | esperado: 684393.99
+OK    fact_now.null_price | real: 0 | esperado: 0
+OK    fact_now.orders | real: 4786 | esperado: 4786
+OK    by_category (claves) | real: ['Electrolyte Mix', 'Energy Bars', 'Granola & Cereals', 'Healthy Snacks', 'Protein Bars', 'Recovery Dairy'] | esperado: ['Electrolyte Mix', 'Energy Bars', 'Granola & Cereals', 'Healthy Snacks', 'Protein Bars', 'Recovery Dairy']
+OK    by_category.Electrolyte Mix | real: 92450.01 | esperado: 92450.01
+OK    by_category.Protein Bars | real: 164356.64 | esperado: 164356.64
+OK    by_category.Granola & Cereals | real: 82248.28 | esperado: 82248.28
+OK    by_category.Recovery Dairy | real: 168404.36 | esperado: 168404.36
+OK    by_category.Healthy Snacks | real: 77905.63 | esperado: 77905.63
+OK    by_category.Energy Bars | real: 99029.07 | esperado: 99029.07
+OK    by_month (claves) | real: ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06'] | esperado: ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']
+OK    by_month.2026-03 | real: 138641.13 | esperado: 138641.13
+OK    by_month.2026-01 | real: 130892.26 | esperado: 130892.26
+OK    by_month.2026-02 | real: 122936.29 | esperado: 122936.29
+OK    by_month.2026-05 | real: 128821.44 | esperado: 128821.44
+OK    by_month.2026-04 | real: 127435.37 | esperado: 127435.37
+OK    by_month.2026-06 | real: 35667.5 | esperado: 35667.5
+OK    gold: al menos un MERGE en el historial | real: True | esperado: True
+OK    gold: primer MERGE, insertadas | real: 275 | esperado: 275
+OK    gold: primer MERGE, actualizadas | real: 20 | esperado: 20
+OK    gold: MERGE posteriores sin cambios | real: 0 | esperado: 0
+OK    silver: al menos un MERGE en el historial | real: True | esperado: True
+OK    silver: primer MERGE, insertadas | real: 275 | esperado: 275
+OK    silver: primer MERGE, actualizadas | real: 20 | esperado: 20
+OK    silver: MERGE posteriores sin cambios | real: 0 | esperado: 0
+OK    gold: la idempotencia se probó (2 o más MERGE) | real: True | esperado: True
+OK    ventas sin dimensión customer | real: 0 | esperado: 0
+OK    ventas sin dimensión product | real: 0 | esperado: 0
+OK    ventas sin dimensión date | real: 0 | esperado: 0
+OK    llaves duplicadas en fact | real: 0 | esperado: 0
+OK    llaves duplicadas en silver.orders | real: 0 | esperado: 0
+OK    product_code duplicado en dim | real: 0 | esperado: 0
+OK    cuarentena orders_batch.csv · sin_cantidad | real: 293 | esperado: 293
+OK    cuarentena orders_batch.csv · producto_inexistente | real: 198 | esperado: 198
+OK    cuarentena orders_incremental_batch.csv · sin_cantidad | real: 16 | esperado: 16
+OK    cuarentena orders_incremental_batch.csv · producto_inexistente | real: 10 | esperado: 10
 
-RESULTADO: TODO OK
+RESULTADO: 60 de 60 comprobaciones coinciden · TODO OK

@@ -46,11 +46,12 @@ A = {
 ]),
 "01_bronze_load": ([
     ("dbutils.widgets.dropdown", "lee los dos parámetros del notebook y arma las rutas y los nombres de tabla"),
-    ("csv_files =", "busca CSV nuevos en landing/; si no hay, termina aquí sin tocar nada"),
-    ("df = (spark.read", "lee los CSV tal cual y les agrega de qué archivo vino cada fila y cuándo se leyó"),
-    ('if load_mode == "initial":', "guarda en Delta: la carga inicial reemplaza la tabla; la incremental va a una tabla de paso y al histórico"),
-    ("for f in csv_files:", "mueve los archivos ya cargados para que la próxima ejecución no los repita"),
-    ("display(spark.table(bronze_table)", "comprobación: cuántas filas aportó cada archivo"),
+    ("SCHEMAS = {", "declara las columnas y los tipos de cada fuente, en vez de dejar que Spark los adivine"),
+    ("def mover_a_processed", "separa los archivos nuevos de los que ya se cargaron antes, comparando por nombre"),
+    ("if hay_nuevos:\n    df = (spark.read", "lee los CSV nuevos tal cual y les agrega de qué archivo vino cada fila y cuándo se leyó"),
+    ('if hay_nuevos:\n    if load_mode == "incremental":', "guarda en Delta: el lote nuevo va a una tabla de paso y todo se suma a la tabla Bronze"),
+    ("if hay_nuevos:\n    for f in nuevos:", "mueve los archivos ya cargados para dejar landing/ vacío"),
+    ("if spark.catalog.tableExists(bronze_table):\n    display", "comprobación: cuántas filas aportó cada archivo"),
 ], [
     ('dbutils.widgets.dropdown("data_source"', "desplegable: qué fuente se carga"),
     ('dbutils.widgets.dropdown("load_mode"', "desplegable: carga inicial o lote nuevo"),
@@ -59,20 +60,25 @@ A = {
     ("processed_path =", "donde quedan los ya cargados"),
     ("bronze_table =", "tabla Bronze de esta fuente"),
     ("staging_table =", "tabla de paso: solo el lote nuevo"),
+    ('"products":', "el identificador llega sucio: se lee como texto"),
+    ("schema = SCHEMAS", "el esquema de la fuente elegida"),
+    ("dbutils.fs.ls(destino)", "si el archivo no está en processed/, esta línea falla y pasa al except"),
+    ("dbutils.fs.rm(f.path)", "ya estaba guardado: se borra la copia repetida"),
+    ("dbutils.fs.mv(f.path, destino)", "de landing/ a processed/"),
     ("csv_files =", "lista los CSV de la carpeta"),
-    ("dbutils.notebook.exit", "corta la ejecución del notebook con un mensaje"),
+    ("ya_cargados = {", "nombres de archivo que ya están en la tabla"),
+    ("nuevos =", "los que faltan por cargar"),
+    ("repetidos =", "los que reaparecieron: no se cargan otra vez"),
+    ("hay_nuevos =", "las celdas siguientes solo actúan si hay algo nuevo"),
     ('.option("header", True)', "la primera fila trae los nombres de columna"),
-    ('.option("inferSchema", True)', "Spark deduce el tipo de cada columna"),
-    (".load(landing_path)", "lee todos los CSV de la carpeta"),
+    (".schema(schema)", "esquema declarado, sin inferencia"),
+    (".load([f.path for f in nuevos])", "solo los archivos nuevos"),
     ('.withColumn("read_timestamp"', "cuándo se leyó"),
     ('.select("*", "_metadata.file_name"', "de qué archivo vino cada fila y cuánto pesaba"),
     ('print("Total filas:"', "cifra de control: debe coincidir con la lámina"),
-    ('.option("delta.enableChangeDataFeed", "true")', "deja registrados los cambios fila por fila"),
-    ('.option("overwriteSchema", "true")', "permite reemplazar también las columnas"),
-    ('.mode("overwrite")', "carga inicial: reemplaza todo"),
     (".saveAsTable(staging_table))", "el lote nuevo, solo, para que Silver procese únicamente eso"),
-    ('df.write.format("delta").mode("append")', "y además se suma al histórico de Bronze"),
-    ("dbutils.fs.mv", "de landing/ a processed/"),
+    ('df.write.format("delta").mode("append")', "la tabla ya existe: se suman las filas"),
+    ('.option("delta.enableChangeDataFeed", "true")', "primera carga: deja registrados los cambios fila por fila"),
 ]),
 "02_silver_customers": ([
     ("from pyspark.sql import functions as F", "lee la tabla Bronze de clientes y muestra cómo llegó"),
@@ -146,28 +152,47 @@ A = {
 "05_silver_orders": ([
     ("from pyspark.sql import functions as F", "prepara las herramientas y lee el parámetro de modo de carga"),
     ('src = (f"{catalog}', "elige de dónde leer: todo Bronze o solo el lote nuevo"),
-    ('df = df.filter(F.col("order_qty").isNotNull())', "descarta las órdenes sin cantidad y marca los clientes inválidos"),
+    ("REGLAS = {", "declara las reglas de calidad y la función que aparta las filas que no las cumplen"),
+    ('df = aplicar_regla(df, "sin_cantidad")', "aplica la primera regla y marca los clientes inválidos"),
     ('df = df.withColumn("order_placement_date",', "deja todas las fechas en un solo formato"),
-    ("df = df.dropDuplicates", "quita filas repetidas y descarta las órdenes cuyo producto no existe"),
-    ('silver_table =', "guarda en Silver: reemplaza todo en la carga inicial o fusiona el lote nuevo"),
+    ('df = df.withColumn("product_id"', "deja una sola fila por orden: si la llave se repite, gana la más reciente"),
+    ("df_products =", "trae el código de producto y aplica la segunda regla"),
+    ("quarantine_table =", "guarda las filas rechazadas con su motivo"),
+    ('silver_table =', "guarda en Silver y declara las restricciones de la tabla"),
 ], [
     ("from delta.tables import DeltaTable", "necesario para MERGE"),
+    ("from pyspark.sql.window", "para ordenar filas dentro de un grupo"),
     ('if load_mode == "incremental"', "lote nuevo: la tabla de paso"),
     ("n_bronze =", "cifra de control: 5.050 en la carga inicial"),
-    ('df = df.filter(F.col("order_qty").isNotNull())', "sin cantidad no hay venta que medir"),
+    ('"sin_cantidad":', "sin cantidad no hay venta que medir"),
+    ('"producto_inexistente":', "sin producto en el maestro no hay precio"),
+    ("rechazadas = []", "aquí se acumulan las filas apartadas"),
+    ('malas = df.filter', "las que NO cumplen la regla"),
+    ('F.col("order_qty").cast("int").alias("order_qty"), F.col("file_name"), F.lit(nombre).alias("motivo")))', "con el nombre de la regla como motivo"),
+    ("return df.filter(REGLAS[nombre])", "siguen adelante las que sí la cumplen"),
     ('F.when(F.col("customer_id").rlike', "solo dígitos = cliente válido"),
     ('.otherwise(F.lit("999999"))))', "cliente inválido: se marca, la venta se conserva"),
+    ('print("Sin qty nula:"', "cifra de control: 4.757"),
     ('F.regexp_replace(F.col("order_placement_date")', "quita el día de la semana del inicio"),
     ("F.coalesce(", "prueba los cuatro formatos; gana el primero que convierte"),
     ('print("Fechas sin parsear:"', "debe dar 0"),
-    ("df = df.dropDuplicates", "misma orden, fecha, cliente, producto y cantidad = fila repetida"),
-    ("df_products =", "maestro de productos ya limpio"),
-    ('df = df.join(df_products', "inner: sin producto en el maestro, la orden se descarta"),
-    ('print("Tras dedup:"', "cifra de control: 4.709 → 4.511"),
-    ('.mode("overwrite")', "carga inicial: reemplaza todo"),
+    ('ultima = (Window.partitionBy', "agrupa por la llave de negocio"),
+    ('.orderBy(F.col("read_timestamp").desc()', "la leída más tarde queda primera"),
+    ('df = df.withColumn("rn"', "se queda con la primera de cada grupo"),
+    ('print("Tras quitar repetidas:", n_dedup)', "cifra de control: 4.709"),
+    ('df = aplicar_regla(df.join(df_products', "left: la orden sin producto queda con código nulo y la regla la aparta"),
+    ('print("Tras quitar repetidas:", n_dedup, "| con producto válido:"', "cifra de control: 4.709 → 4.511"),
+    ("df_q =", "las rechazadas por las dos reglas"),
+    ('if load_mode == "initial" or not', "carga inicial: la cuarentena se reemplaza"),
+    ('.delete(F.col("file_name").isin(archivos)))', "lote nuevo: primero se quitan las filas previas de ese archivo"),
+    ('df_q.write.format("delta").mode("append")', "y se agregan las de esta carga"),
+    ('.mode("overwrite")\n       .saveAsTable(silver_table))', "carga inicial: reemplaza todo"),
     ('.mode("overwrite").saveAsTable(f"{catalog}.{silver_schema}.staging_orders"))', "el lote limpio que leerá el notebook 08"),
     (".merge(df.alias(\"new\"),", "condición: las cuatro columnas que identifican una orden"),
-    (".whenMatchedUpdateAll().whenNotMatchedInsertAll().execute())", "si existe, actualiza; si no, inserta"),
+    (".whenMatchedUpdateAll(condition=", "si existe, se actualiza solo cuando cambió la cantidad"),
+    (".whenNotMatchedInsertAll().execute())", "si no existe, se inserta"),
+    ('spark.sql(f"ALTER TABLE {silver_table} DROP CONSTRAINT', "permite repetir la celda sin error"),
+    ('spark.sql(f"ALTER TABLE {silver_table} ADD CONSTRAINT', "desde aquí, Delta rechaza cualquier fila que la incumpla"),
 ]),
 "06_gold_dims": ([
     ("from pyspark.sql import functions as F", "genera el calendario del año completo, con una fila por día"),
@@ -185,11 +210,12 @@ A = {
 ]),
 "07_gold_fact_full_load": ([
     ('df = spark.sql(f"""', "arma la tabla de ventas: una fila por línea de orden, con su precio y su revenue"),
-    ("fact_table =", "guarda fact_sales completa (carga inicial)"),
+    ("fact_table =", "guarda fact_sales completa (carga inicial) y declara que ninguna venta puede quedar sin precio"),
     ("SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity)", "totales de control: deben coincidir con la lámina"),
 ], [
     ('print("fact rows:"', "cifra de control: 4.511"),
     ('.mode("overwrite")', "la carga inicial crea la versión 0 de la tabla"),
+    ('spark.sql(f"ALTER TABLE {fact_table} ADD CONSTRAINT', "un lote con una venta sin precio falla en vez de publicar revenue nulo"),
     ("FROM fmcg.gold.fact_sales;", "esperado: 648.109,79 · 92.491 · 4.511"),
 ]),
 "08_gold_fact_incremental": ([
@@ -226,7 +252,9 @@ A = {
     ("GROUP BY 1 ORDER BY 1;", "1 = la primera columna del SELECT"),
 ]),
 "98_validacion": ([
-    ("import json", "extrae las cifras reales de las tablas para compararlas con el cálculo independiente (qa/oraculo.py)"),
+    ("import json", "extrae las cifras reales de las tablas"),
+    ("lineas = []", "compara cada cifra con la esperada y hace fallar el notebook si alguna difiere"),
+    ("dbutils.notebook.exit", "todo coincide: devuelve las cifras a quien ejecutó el notebook"),
 ], [
     ("q = lambda s:", "atajo: ejecuta una consulta y devuelve sus filas"),
     ("m = {}", "aquí se acumulan todas las cifras"),
@@ -239,7 +267,10 @@ A = {
     ('m["history"]', "qué insertó y actualizó cada escritura"),
     ('m["fact_orphans"]', "ventas que apuntan a una dimensión inexistente: debe ser 0"),
     ('m["fact_dup_keys"]', "ventas repetidas: debe ser 0"),
-    ("dbutils.notebook.exit(json.dumps(m))", "devuelve las cifras a quien ejecutó el notebook"),
+    ('m["silver_dup_keys"]', "órdenes repetidas en Silver: debe ser 0"),
+    ('m["quarantine"] = {}', "filas en cuarentena por archivo y motivo"),
+    ("fallas = comparar(m, esperado, lineas.append)", "la función y las cifras esperadas vienen del notebook esperado"),
+    ("raise Exception", "el error deja la tarea, y el job, en rojo"),
 ]),
 "99_reset_demo": ([
     ("for schema in", "borra todas las tablas de las tres capas"),
@@ -250,11 +281,6 @@ A = {
     ("sources =", "las cinco carpetas de datos"),
     ("except Exception:", "si la carpeta no existe, no hay nada que mover"),
     ("dbutils.fs.mv", "de vuelta a landing/"),
-]),
-"run_all": ([
-    ("counts = {}", "cuenta las filas de las 13 tablas como resumen final"),
-], [
-    ('counts[t] = spark.table', "filas de cada tabla"),
 ]),
 }
 
@@ -273,18 +299,20 @@ def celdas_python(src):
 def poner(src, cabeceras, lineas):
     L = src.split("\n")
     usados = set()
+    cuerpo = lambda l: (l[8:] if l.startswith("# MAGIC ") else l).strip()
 
-    def buscar(clave, libres=True):
-        for i, l in enumerate(L):
-            if MARCA in l or (libres and i in usados):
-                continue
-            magic = l.startswith("# MAGIC ")
-            if (l[8:] if magic else l).strip().startswith(clave):
-                return i, magic
-        raise SystemExit(f"no encuentro la línea: {clave!r}")
+    def coincide(i, clave):
+        """La clave puede tener varias líneas: deben coincidir líneas consecutivas (inicio de cada una)."""
+        partes = clave.split("\n")
+        return all(i + k < len(L) and cuerpo(L[i + k]).startswith(p.strip()) for k, p in enumerate(partes))
 
     for clave, texto in lineas:
-        i, magic = buscar(clave)
+        partes = clave.split("\n")
+        i = next((j for j in range(len(L)) if MARCA not in L[j] and (j + len(partes) - 1) not in usados and coincide(j, clave)), None)
+        if i is None:
+            raise SystemExit(f"no encuentro la línea: {clave!r}")
+        i += len(partes) - 1  # el comentario va en la última línea de la clave
+        magic = L[i].startswith("# MAGIC ")
         assert not L[i].rstrip().endswith("\\"), L[i]
         if magic and L[i].rstrip().endswith(";"):
             # en SQL, un comentario después del «;» final quedaría como sentencia vacía: va en su propia línea, antes
@@ -293,11 +321,12 @@ def poner(src, cabeceras, lineas):
             continue
         L[i] = L[i].rstrip() + ("  -- " if magic else "  # ") + texto
         usados.add(i)
+    propios = {"# MAGIC -- " + t for _, t in lineas}
     for clave, texto in cabeceras:
-        propios = {"# MAGIC -- " + t for _, t in lineas}
-        i, magic = next((j, l.startswith("# MAGIC ")) for j, l in enumerate(L)
-                        if MARCA not in l and MARCA not in L[j - 1]
-                        and (l[8:] if l.startswith("# MAGIC ") else l).strip().startswith(clave))
+        i = next((j for j in range(len(L)) if MARCA not in L[j] and MARCA not in L[j - 1] and coincide(j, clave)), None)
+        if i is None:
+            raise SystemExit(f"no encuentro la celda: {clave!r}")
+        magic = L[i].startswith("# MAGIC ")
         while L[i - 1] in propios:  # la cabecera va antes de los comentarios propios de esa línea
             i -= 1
         if MARCA in L[i - 1]:

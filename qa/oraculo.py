@@ -87,4 +87,21 @@ m["by_category"] = {}; m["by_month"] = {}
 for k, v in f1.items():
     c = cat_of[k[3]]; m["by_category"][c] = round(m["by_category"].get(c, 0) + (v[2] or 0), 2)
     mo = str(k[1])[:7]; m["by_month"][mo] = round(m["by_month"].get(mo, 0) + (v[2] or 0), 2)
+
+# calidad: cuántas filas afecta cada regla de órdenes, paso por paso, y qué queda en cuarentena
+def pasos(rows):
+    con_qty = [r for r in rows if r["order_qty"] != ""]
+    llaves = {}
+    for r in con_qty:
+        cid = r["customer_id"] if r["customer_id"].isdigit() else "999999"
+        d = pdate(re.sub(r"^[A-Za-z]+,\s*", "", r["order_placement_date"]), ["%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y", "%B %d, %Y"])
+        llaves[(r["order_id"], d, cid, r["product_id"])] = r["product_id"]
+    sin_producto = sum(1 for pid in llaves.values() if pid not in valid_p)
+    return {"llegan": len(rows), "sin_cantidad": len(rows) - len(con_qty), "tras_sin_cantidad": len(con_qty),
+            "tras_repetidas": len(llaves), "producto_inexistente": sin_producto, "validas": len(llaves) - sin_producto}
+q_ini, q_inc = pasos(o_ini), pasos(o_inc)
+assert q_ini["validas"] == len(s_ini) and q_inc["validas"] == len(s_inc), "los pasos no cuadran con el resultado"
+m["quality"] = {"orders_initial": q_ini, "orders_incremental": q_inc,
+                "quarantine": {"orders_batch.csv": {k: q_ini[k] for k in ("sin_cantidad", "producto_inexistente")},
+                               "orders_incremental_batch.csv": {k: q_inc[k] for k in ("sin_cantidad", "producto_inexistente")}}}
 print(json.dumps(m, indent=1, ensure_ascii=False))
