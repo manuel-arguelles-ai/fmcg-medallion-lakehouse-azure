@@ -6,7 +6,7 @@ name: despliegue
 on:
   workflow_dispatch:
   push:
-    branches: [main, v2]
+    branches: [main]
     paths: ["notebooks/**", "databricks.yml", ".github/workflows/deploy.yml"]
 
 permissions:

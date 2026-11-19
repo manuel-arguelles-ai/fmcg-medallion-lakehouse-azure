@@ -1,12 +1,12 @@
 {
  "estado": "SUCCESS",
- "duracion_s": 367,
- "duracion": "6 min 7 s",
- "fecha_utc": "2026-11-19 14:13",
+ "duracion_s": 376,
+ "duracion": "6 min 16 s",
+ "fecha_utc": "2026-11-19 16:12",
  "computo": {
   "tipo": "serverless",
   "despliegue": "Databricks Asset Bundle (databricks.yml), target prod, desplegado y ejecutado desde GitHub Actions con un service principal",
-  "flujo": "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44541323573"
+  "flujo": "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44563373669"
  },
  "parametros": {
   "catalog": "fmcg"
@@ -18,19 +18,19 @@
   },
   "t01_customers": {
    "estado": "SUCCESS",
-   "segundos": 39
+   "segundos": 43
   },
   "t01_orders": {
    "estado": "SUCCESS",
-   "segundos": 18
+   "segundos": 19
   },
   "t01_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 19
+   "segundos": 18
   },
   "t01_pricing": {
    "estado": "SUCCESS",
-   "segundos": 18
+   "segundos": 16
   },
   "t01_products": {
    "estado": "SUCCESS",
@@ -38,7 +38,7 @@
   },
   "t02_customers": {
    "estado": "SUCCESS",
-   "segundos": 19
+   "segundos": 20
   },
   "t03_products": {
    "estado": "SUCCESS",
@@ -50,15 +50,15 @@
   },
   "t05_orders": {
    "estado": "SUCCESS",
-   "segundos": 30
+   "segundos": 31
   },
   "t05_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 36
+   "segundos": 39
   },
   "t06_dims": {
    "estado": "SUCCESS",
-   "segundos": 19
+   "segundos": 20
   },
   "t07_fact_full": {
    "estado": "SUCCESS",
@@ -66,11 +66,11 @@
   },
   "t08_fact_incr": {
    "estado": "SUCCESS",
-   "segundos": 27
+   "segundos": 28
   },
   "t09_optimize": {
    "estado": "SUCCESS",
-   "segundos": 18
+   "segundos": 17
   },
   "t98_validacion": {
    "estado": "SUCCESS",
@@ -78,15 +78,15 @@
   }
  },
  "sha256_notebooks": {
-  "00_setup_catalog.py": "47228a65e065ca9a",
-  "01_bronze_load.py": "147432bde8673049",
+  "00_setup_catalog.py": "add84e0dd813f1ab",
+  "01_bronze_load.py": "7032cba72575dd4f",
   "02_silver_customers.py": "13d242cb1d31eac5",
   "03_silver_products.py": "4d8ffa136d851ff1",
   "04_silver_pricing.py": "b320e43a5099cc6d",
   "05_silver_orders.py": "2e75d3af25b2dd13",
   "06_gold_dims.py": "ebaf0365ef1afd1c",
-  "07_gold_fact_full_load.py": "7c3b293efb1394a3",
-  "08_gold_fact_incremental.py": "28eba2fac1bf299f",
+  "07_gold_fact_full_load.py": "03086aad9a6ec04a",
+  "08_gold_fact_incremental.py": "9b184076d8390360",
   "09_optimize_and_kpis.py": "df27a1af8210f8e5",
   "98_validacion.py": "6e7c14af33c1321c",
   "99_reset_demo.py": "d9c988cfe26070bf",
@@ -96,12 +96,15 @@
  },
  "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
  "pruebas_adicionales": {
-  "fila_malformada": "serverless: qa/pruebas/fila_malformada.py leyó un CSV con una fila de tipo incorrecto y otra con una columna de más; la primera quedó en _rescued_data, la segunda no (límite declarado)",
-  "corte_entre_bronze_y_tabla_de_paso": "serverless: tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso; el resto del pipeline la reconstruyó y la validación dio 60 de 60 (versión anterior de la rama, con 60 comprobaciones)",
+  "nota": "Hechas con los mismos notebooks de esta ejecución, en serverless, sobre el catálogo del target dev (fmcg_dev), desplegado con el bundle desde la CLI. Se registra el resultado, no las salidas completas.",
+  "dev_desde_cero": "SUCCESS, 66 de 66",
+  "segunda_ejecucion_sin_reset": "SUCCESS, 338 s, 66 de 66",
+  "orquestador_run_all_desde_cero": "SUCCESS, 305 s, validación incluida",
+  "corte_entre_bronze_y_tabla_de_paso": "tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso («CORTE SIMULADO»); el resto del pipeline la reconstruyó y la validación dio 66 de 66",
+  "orden_inesperada_en_un_archivo_nuevo": "con una orden extra en un archivo nuevo de la carpeta incremental, el job terminó en FAILED y la validación señaló 11 cifras",
+  "fila_malformada": "qa/pruebas/fila_malformada.py leyó un CSV con una fila de tipo incorrecto y otra con una columna de más; la primera quedó en _rescued_data, la segunda no (límite declarado)",
   "versiones_anteriores_de_esta_rama": {
-   "serverless_segunda_ejecucion_sin_reset": "SUCCESS, 298 s, validación dentro del job",
-   "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida",
-   "version_anterior_de_la_ingesta_control_por_nombre": "en cluster: desde cero, sin reset, archivo ya cargado devuelto a landing (no se repitió) y orden inesperada (job en rojo, 11 cifras señaladas)"
+   "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida (DBR 16.4 LTS)"
   }
  }
 }

@@ -4,17 +4,15 @@
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
-La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo `despliegue` sí lo ejecuta: con un service principal despliega el bundle en `prod` y corre el pipeline completo, que queda en rojo si una cifra no coincide ([corrida registrada](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44541323573)). En un fork sin esos secretos, el flujo se omite y aparece en verde igual.
+Un pipeline de datos de punta a punta para una distribuidora de alimentos de consumo masivo (FMCG): recibe archivos CSV con errores reales de captura, los limpia con reglas de negocio explícitas, los modela en estrella y los publica en un dashboard. Cada lote nuevo de órdenes se integra con `MERGE` sin duplicar ventas, y todas las cifras se comprueban contra un cálculo independiente.
 
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
-
-Un pipeline de datos de punta a punta para una distribuidora de alimentos de consumo masivo (FMCG): recibe archivos CSV con errores reales de captura, los limpia con reglas de negocio explícitas, los modela en estrella y los publica en un dashboard. Cada lote nuevo de órdenes se integra con `MERGE` sin duplicar ventas, y todas las cifras se comprueban contra un cálculo independiente.
 
 | | |
 |---|---|
 | **Resultado** | 13 tablas Delta en tres capas (más dos de paso, una de cuarentena y un registro de cargas) · 4.786 líneas de venta · US$ 684.393,99 de revenue · 66 de 66 comprobaciones dentro del job |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · Auto Loader · PySpark · Spark SQL · Lakeflow Jobs · Asset Bundles · AI/BI Dashboards · ADLS Gen2 |
-| **Tiempo de ejecución** | Unos 5 minutos de principio a fin en serverless ([5 min 22 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
+| **Tiempo de ejecución** | Unos 6 minutos de principio a fin en serverless ([6 min 16 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
 | **Datos** | Sintéticos y reproducibles: 5 archivos CSV, 5.954 filas, generados con semilla fija |
 
 ![Dashboard «FMCG · Ventas (Gold)»](docs/img/dashboard.png)
@@ -222,9 +220,9 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
 - **Silver y Gold** usan `MERGE` con una condición de cambio: solo reescriben una fila si su cantidad (o su precio) cambió. Gold lo prueba en el propio notebook, que falla si la segunda ejecución no da 0 y 0; la validación comprueba además que, en ambas capas, todo `MERGE` posterior al primero no cambió nada.
 - **Bronze** usa Auto Loader: su *checkpoint* anota cada archivo procesado y avanza junto con la escritura, así que un archivo queda cargado exactamente una vez aunque la ejecución se interrumpa y se repita.
-- **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las 60 comprobaciones que había entonces, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
+- **Probado, no solo diseñado:** con este mismo código, en serverless y sobre el catálogo de `dev`, una segunda ejecución completa sin reset terminó en verde con las 66 comprobaciones, y lo mismo el orquestador `run_all` desde cero. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas. De estas pruebas se conserva el [registro del resultado](qa/evidencia/ejecucion_job.json), no las salidas completas.
 - **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
-- **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) y las 60 cifras de entonces.
+- **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py): tras el corte, el resto del pipeline dio 66 de 66.
 - **La validación no depende del historial de Delta:** cada carga completa y cada `MERGE` se copia a una tabla propia, `gold.load_log`, y la validación lee de ahí. El historial de Delta se recorta con el tiempo; el registro, no. No está probado con un historial ya recortado.
 - **Filas malformadas:** un valor que no encaja en el tipo declarado (un texto donde va un número) no se convierte en nulo en silencio: Auto Loader lo guarda en `_rescued_data` y Silver envía la orden a cuarentena con el motivo `fila_malformada`. Probado con [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Límite:** una fila con columnas de más no se señala, porque el lector CSV descarta los valores sobrantes; y la regla solo existe para órdenes.
 
@@ -244,7 +242,9 @@ Cada escritura crea una versión de la tabla, y se puede volver a consultar mien
 
 Resultado: 66 de 66. La salida real de la última ejecución del job (en serverless, desplegado con el bundle) y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/), junto con el registro de las pruebas adicionales.
 
-Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos y comprueba que salen idénticos, recalcula las cifras esperadas y las compara con las publicadas, comprueba que el notebook de validación usa esas mismas cifras, compara la salida guardada de la última ejecución, y comprueba que esa evidencia corresponde a los notebooks actuales y que sus comentarios no alteran el código Python.
+Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos y comprueba que salen idénticos, recalcula las cifras esperadas y las compara con las publicadas, comprueba que el notebook de validación usa esas mismas cifras, compara la salida guardada de la última ejecución, y comprueba que esa evidencia corresponde a los notebooks actuales y que sus comentarios no alteran el código Python. No ejecuta el pipeline en Databricks ni puede comprobar que la evidencia sea auténtica.
+
+Quien sí lo ejecuta es el flujo [`deploy.yml`](.github/workflows/deploy.yml): con un service principal despliega el bundle en `prod` y corre el pipeline completo, que queda en rojo si una cifra no coincide ([corrida registrada](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44563373669)). En un fork sin esos secretos, el flujo se omite y aparece en verde igual.
 
 El cálculo independiente comparte las reglas de negocio pero no el motor. Detecta errores de implementación; no detecta una regla mal elegida.
 
@@ -311,7 +311,7 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Cada entorno del bundle escribe en su catálogo: `prod` en `fmcg` (desplegado y ejecutado desde GitHub) y `dev` en `fmcg_dev`. Cada catálogo hay que crearlo antes, con sus CSV en su propio Volume. `dev` se ejecutó completo desde la CLI sobre `fmcg_dev`, con 66 de 66 comprobaciones, sin escribir en `fmcg`.
+- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Cada entorno del bundle escribe en su catálogo: `prod` en `fmcg` (desplegado y ejecutado desde GitHub) y `dev` en `fmcg_dev`. Cada catálogo hay que crearlo antes, con sus CSV en su propio Volume. `dev` se ejecutó completo desde la CLI sobre `fmcg_dev`, con 66 de 66 comprobaciones, sin escribir en `fmcg` (consta en el [registro de pruebas](qa/evidencia/ejecucion_job.json)).
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
 
@@ -334,7 +334,7 @@ Este proyecto parte de [databricks-medallion-lakehouse-fmcg](https://github.com/
 | | Ingesta con esquema declarado y control de archivos ya cargados; pipeline re-ejecutable sin reset |
 | | Job de 16 tareas, dashboard, notebook de reset y notebooks comentados |
 
-Se presentó en el taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (noviembre de 2026). Las láminas del taller están en la rama [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck).
+Es el proyecto del taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (19 de noviembre de 2026). Las láminas del taller están en la rama [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck).
 
 **Manuel Argüelles** · AI Analytics Engineer · [LinkedIn](https://www.linkedin.com/in/manuel-arguelles-ai/) · [analizodatos.com](https://analizodatos.com)
 
