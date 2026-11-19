@@ -1,0 +1,132 @@
+# Databricks Asset Bundle: define el job del pipeline como código.
+#   databricks bundle validate            # comprueba la definición
+#   databricks bundle deploy -t dev        # crea o actualiza el job en tu workspace
+#   databricks bundle run -t dev fmcg_medallion_pipeline
+bundle:
+  name: fmcg-medallion-lakehouse
+
+# Las tareas no declaran cómputo: corren en serverless.
+
+# Cada entorno escribe en su propio catálogo: dev no toca las tablas de prod.
+variables:
+  catalog:
+    description: Catálogo de Unity Catalog donde el pipeline lee y escribe
+    default: fmcg
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      catalog: fmcg_dev
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+
+resources:
+  jobs:
+    fmcg_medallion_pipeline:
+      name: fmcg-medallion-pipeline
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+      tasks:
+        - task_key: t00_setup
+          notebook_task:
+            notebook_path: ./notebooks/00_setup_catalog.py
+        - task_key: t01_customers
+          depends_on:
+            - task_key: t00_setup
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_load.py
+            base_parameters:
+              data_source: customers
+              load_mode: initial
+        - task_key: t01_products
+          depends_on:
+            - task_key: t01_customers
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_load.py
+            base_parameters:
+              data_source: products
+              load_mode: initial
+        - task_key: t01_pricing
+          depends_on:
+            - task_key: t01_products
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_load.py
+            base_parameters:
+              data_source: gross_price
+              load_mode: initial
+        - task_key: t01_orders
+          depends_on:
+            - task_key: t01_pricing
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_load.py
+            base_parameters:
+              data_source: orders
+              load_mode: initial
+        - task_key: t02_customers
+          depends_on:
+            - task_key: t01_orders
+          notebook_task:
+            notebook_path: ./notebooks/02_silver_customers.py
+        - task_key: t03_products
+          depends_on:
+            - task_key: t02_customers
+          notebook_task:
+            notebook_path: ./notebooks/03_silver_products.py
+        - task_key: t04_pricing
+          depends_on:
+            - task_key: t03_products
+          notebook_task:
+            notebook_path: ./notebooks/04_silver_pricing.py
+        - task_key: t05_orders
+          depends_on:
+            - task_key: t04_pricing
+          notebook_task:
+            notebook_path: ./notebooks/05_silver_orders.py
+            base_parameters:
+              load_mode: initial
+        - task_key: t06_dims
+          depends_on:
+            - task_key: t05_orders
+          notebook_task:
+            notebook_path: ./notebooks/06_gold_dims.py
+        - task_key: t07_fact_full
+          depends_on:
+            - task_key: t06_dims
+          notebook_task:
+            notebook_path: ./notebooks/07_gold_fact_full_load.py
+        - task_key: t01_orders_incr
+          depends_on:
+            - task_key: t07_fact_full
+          notebook_task:
+            notebook_path: ./notebooks/01_bronze_load.py
+            base_parameters:
+              data_source: orders
+              load_mode: incremental
+        - task_key: t05_orders_incr
+          depends_on:
+            - task_key: t01_orders_incr
+          notebook_task:
+            notebook_path: ./notebooks/05_silver_orders.py
+            base_parameters:
+              load_mode: incremental
+        - task_key: t08_fact_incr
+          depends_on:
+            - task_key: t05_orders_incr
+          notebook_task:
+            notebook_path: ./notebooks/08_gold_fact_incremental.py
+        - task_key: t09_optimize
+          depends_on:
+            - task_key: t08_fact_incr
+          notebook_task:
+            notebook_path: ./notebooks/09_optimize_and_kpis.py
+        - task_key: t98_validacion
+          depends_on:
+            - task_key: t09_optimize
+          notebook_task:
+            notebook_path: ./notebooks/98_validacion.py

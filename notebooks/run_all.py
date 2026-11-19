@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC ## 🔁 Orquestador del dry-run — ejecuta el pipeline completo en orden
+# MAGIC ## Orquestador — ejecuta el pipeline completo en orden y lo valida
 # MAGIC No toca Azure directamente: llama a cada notebook con sus parámetros.
 # MAGIC Correr con **Run all** en cómputo Serverless.
 
@@ -75,15 +75,8 @@
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### ✅ Resumen final
+# MAGIC ### 6. Validación — termina con error si una cifra no coincide
 
 # COMMAND ----------
-# QUÉ HACE: cuenta las filas de las 13 tablas como resumen final
-counts = {}
-for t in ["bronze.customers", "bronze.products", "bronze.gross_price", "bronze.orders",
-          "silver.customers", "silver.products", "silver.gross_price", "silver.orders",
-          "gold.dim_date", "gold.dim_customers", "gold.dim_products", "gold.dim_pricing", "gold.fact_sales"]:
-    counts[t] = spark.table(f"fmcg.{t}").count()  # filas de cada tabla
-for k, v in counts.items():
-    print(f"{k:24s} {v:>8,} filas")
-print("\nPipeline completo OK ✅")
+
+# MAGIC %run ./98_validacion

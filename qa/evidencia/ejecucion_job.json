@@ -1,95 +1,110 @@
 {
  "estado": "SUCCESS",
- "duracion_s": 231,
- "duracion": "3 min 51 s",
+ "duracion_s": 376,
+ "duracion": "6 min 16 s",
+ "fecha_utc": "2026-11-19 16:12",
  "computo": {
-  "runtime": "16.4.x-scala2.13",
-  "tipo_de_nodo": "Standard_D4ds_v7",
-  "workers": 0,
-  "modo": "nodo único"
+  "tipo": "serverless",
+  "despliegue": "Databricks Asset Bundle (databricks.yml), target prod, desplegado y ejecutado desde GitHub Actions con un service principal",
+  "flujo": "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44563373669"
+ },
+ "parametros": {
+  "catalog": "fmcg"
  },
  "tareas": {
-  "t01_orders": {
+  "t00_setup": {
    "estado": "SUCCESS",
-   "segundos": 12
-  },
-  "t05_orders": {
-   "estado": "SUCCESS",
-   "segundos": 13
-  },
-  "t08_fact_incr": {
-   "estado": "SUCCESS",
-   "segundos": 19
+   "segundos": 25
   },
   "t01_customers": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 43
   },
-  "t02_customers": {
+  "t01_orders": {
    "estado": "SUCCESS",
-   "segundos": 14
+   "segundos": 19
   },
   "t01_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 11
-  },
-  "t00_setup": {
-   "estado": "SUCCESS",
-   "segundos": 10
-  },
-  "t98_validacion": {
-   "estado": "SUCCESS",
-   "segundos": 20
+   "segundos": 18
   },
   "t01_pricing": {
    "estado": "SUCCESS",
-   "segundos": 12
+   "segundos": 16
   },
-  "t05_orders_incr": {
+  "t01_products": {
    "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 18
   },
-  "t06_dims": {
+  "t02_customers": {
    "estado": "SUCCESS",
    "segundos": 20
   },
   "t03_products": {
    "estado": "SUCCESS",
-   "segundos": 13
-  },
-  "t09_optimize": {
-   "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 15
   },
   "t04_pricing": {
    "estado": "SUCCESS",
    "segundos": 13
   },
+  "t05_orders": {
+   "estado": "SUCCESS",
+   "segundos": 31
+  },
+  "t05_orders_incr": {
+   "estado": "SUCCESS",
+   "segundos": 39
+  },
+  "t06_dims": {
+   "estado": "SUCCESS",
+   "segundos": 20
+  },
   "t07_fact_full": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 18
   },
-  "t01_products": {
+  "t08_fact_incr": {
    "estado": "SUCCESS",
-   "segundos": 11
+   "segundos": 28
+  },
+  "t09_optimize": {
+   "estado": "SUCCESS",
+   "segundos": 17
+  },
+  "t98_validacion": {
+   "estado": "SUCCESS",
+   "segundos": 30
   }
  },
- "fecha_utc": "2026-11-19 04:52",
  "sha256_notebooks": {
-  "00_setup_catalog.py": "c1645711f062b7ce",
-  "01_bronze_load.py": "82a77ce55349e4c2",
+  "00_setup_catalog.py": "add84e0dd813f1ab",
+  "01_bronze_load.py": "7032cba72575dd4f",
   "02_silver_customers.py": "13d242cb1d31eac5",
   "03_silver_products.py": "4d8ffa136d851ff1",
   "04_silver_pricing.py": "b320e43a5099cc6d",
-  "05_silver_orders.py": "fe4b7cce5f2d384b",
-  "06_gold_dims.py": "21841b903eb5ab07",
-  "07_gold_fact_full_load.py": "e7f00e620e7c414e",
-  "08_gold_fact_incremental.py": "e70e126861ac1676",
-  "09_optimize_and_kpis.py": "13bb5a789bf055cb",
-  "98_validacion.py": "62d32527cc3eda1e",
-  "99_reset_demo.py": "3edb71adb3189ff0",
-  "run_all.py": "8898c0a6d43dbfce",
-  "utilities.py": "38e651bff2251833"
+  "05_silver_orders.py": "2e75d3af25b2dd13",
+  "06_gold_dims.py": "ebaf0365ef1afd1c",
+  "07_gold_fact_full_load.py": "03086aad9a6ec04a",
+  "08_gold_fact_incremental.py": "9b184076d8390360",
+  "09_optimize_and_kpis.py": "df27a1af8210f8e5",
+  "98_validacion.py": "6e7c14af33c1321c",
+  "99_reset_demo.py": "d9c988cfe26070bf",
+  "esperado.py": "2d832839631b1f80",
+  "run_all.py": "158a117928bbd04d",
+  "utilities.py": "1b3c7d41c07f7847"
  },
- "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella."
+ "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
+ "pruebas_adicionales": {
+  "nota": "Hechas con los mismos notebooks de esta ejecución, en serverless, sobre el catálogo del target dev (fmcg_dev), desplegado con el bundle desde la CLI. Se registra el resultado, no las salidas completas.",
+  "dev_desde_cero": "SUCCESS, 66 de 66",
+  "segunda_ejecucion_sin_reset": "SUCCESS, 338 s, 66 de 66",
+  "orquestador_run_all_desde_cero": "SUCCESS, 305 s, validación incluida",
+  "corte_entre_bronze_y_tabla_de_paso": "tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso («CORTE SIMULADO»); el resto del pipeline la reconstruyó y la validación dio 66 de 66",
+  "orden_inesperada_en_un_archivo_nuevo": "con una orden extra en un archivo nuevo de la carpeta incremental, el job terminó en FAILED y la validación señaló 11 cifras",
+  "fila_malformada": "qa/pruebas/fila_malformada.py leyó un CSV con una fila de tipo incorrecto y otra con una columna de más; la primera quedó en _rescued_data, la segunda no (límite declarado)",
+  "versiones_anteriores_de_esta_rama": {
+   "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida (DBR 16.4 LTS)"
+  }
+ }
 }

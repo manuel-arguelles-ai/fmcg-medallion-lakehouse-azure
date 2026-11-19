@@ -1,0 +1,49 @@
+name: despliegue
+
+# Despliega el job con Databricks Asset Bundles y ejecuta el pipeline completo.
+# Requiere tres secretos del repositorio, de un service principal de Databricks:
+#   DATABRICKS_HOST, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["notebooks/**", "databricks.yml", ".github/workflows/deploy.yml"]
+
+permissions:
+  contents: read
+
+concurrency: despliegue
+
+jobs:
+  desplegar-y-ejecutar:
+    runs-on: ubuntu-latest
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      DATABRICKS_BUNDLE_ENGINE: direct
+    steps:
+      - name: Comprobar que hay credenciales
+        id: cred
+        run: |
+          if [ -z "$DATABRICKS_HOST" ] || [ -z "$DATABRICKS_CLIENT_ID" ] || [ -z "$DATABRICKS_CLIENT_SECRET" ]; then
+            echo "::notice::Faltan los secretos del service principal: el despliegue se omite."
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.cred.outputs.listo == 'si'
+      - uses: databricks/setup-cli@a8fd94e7ec7c5693ddefb50bbc563832e236bb29  # v0.288.0
+        if: steps.cred.outputs.listo == 'si'
+        with:
+          version: 0.288.0
+      - name: Validar el bundle
+        if: steps.cred.outputs.listo == 'si'
+        run: databricks bundle validate -t prod
+      - name: Desplegar el job
+        if: steps.cred.outputs.listo == 'si'
+        run: databricks bundle deploy -t prod
+      - name: Ejecutar el pipeline (falla si una cifra no coincide)
+        if: steps.cred.outputs.listo == 'si'
+        run: databricks bundle run -t prod fmcg_medallion_pipeline

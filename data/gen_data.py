@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generador determinista de data FMCG 'sucia' para el taller solidario.
+"""Generador determinista de data FMCG 'sucia' para el proyecto.
 
 Produce dos cargas:
   data/landing/initial/     -> carga bulk (clientes, productos, precios, órdenes históricas)
@@ -80,9 +80,9 @@ def gen_customers(n=180):
 def gen_products(n=60):
     rows = []
     for i in range(1, n + 1):
-        pid = 500 + i if random.random() > 0.08 else f"P{i:03d}X"  # ~8% ids inválidos
+        pid = 500 + i if random.random() > 0.08 else f"P{i:03d}X"  # algunos productos llegan con id inválido (12 en los datos generados)
         cat = random.choice(CATEGORIES)
-        name = f"{cat.title().replace('Protien', 'Protien')} Bar Co {i:02d}"
+        name = f"{cat.title()} Bar Co {i:02d}"
         if random.random() < 0.5:
             name = name.lower()
         name = f"{name} ({random.choice(VARIANTS)})"
@@ -123,8 +123,7 @@ def gen_pricing(products, n_months=6):
 def fmt_date(d):
     fmt = random.choice(["weekday_us", "ymd", "dmy", "dmy2"])
     if fmt == "weekday_us":
-        return f"{WEEKDAYS[d.weekday()]}, {MONTHS[d.month-1][:d.month-0]} {d.day:02d}, {d.year}" \
-            if False else f"{WEEKDAYS[d.weekday()]}, {MONTHS[d.month-1]} {d.day:02d}, {d.year}"
+        return f"{WEEKDAYS[d.weekday()]}, {MONTHS[d.month-1]} {d.day:02d}, {d.year}"
     if fmt == "ymd":
         return d.strftime("%Y/%m/%d")
     if fmt == "dmy":
