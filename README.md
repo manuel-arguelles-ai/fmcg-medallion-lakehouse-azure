@@ -1,6 +1,8 @@
 # FMCG Medallion Lakehouse en Azure Databricks
 
-**Español** · [English](README.en.md)
+[![verificacion](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml/badge.svg)](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml)
+
+🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
 
@@ -13,7 +15,13 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 | **Tiempo de ejecución** | Unos 4 minutos de principio a fin con el job en un cluster de un solo nodo de 4 núcleos (3 min 51 s en la última ejecución) |
 | **Datos** | Sintéticos y reproducibles: 5 archivos CSV, 5.954 filas, generados con semilla fija |
 
-![Dashboard «FMCG · Ventas (Gold)»](deck/assets/dashboard.png)
+![Dashboard «FMCG · Ventas (Gold)»](docs/img/dashboard.png)
+
+**Lo que demuestra este proyecto**
+
+- **Carga incremental que no duplica:** un `MERGE` con llave de negocio que, ejecutado dos veces con el mismo lote, inserta 0 y actualiza 0.
+- **Cifras que se pueden defender:** un cálculo independiente en Python puro reproduce las 50 cifras de control, y un flujo automático lo comprueba en cada cambio.
+- **Criterio ante datos malos:** cada caso tiene una regla explícita (corregir, marcar o descartar) y su motivo.
 
 ## Contenido
 
@@ -58,7 +66,7 @@ Los archivos llegan a un Volume de Unity Catalog, que en Azure es un contenedor 
 
 | El Volume en Databricks | El mismo almacenamiento en Azure |
 |---|---|
-| ![Volume raw](deck/assets/ui-volume.png) | ![Contenedor en ADLS](deck/assets/ui-adls.png) |
+| ![Volume raw](docs/img/ui-volume.png) | ![Contenedor en ADLS](docs/img/ui-adls.png) |
 
 ## Stack
 
@@ -130,7 +138,7 @@ erDiagram
 
 Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y notebooks sale `fact_sales` y quién la consume.
 
-![Linaje de fact_sales](deck/assets/ui-linaje.png)
+![Linaje de fact_sales](docs/img/ui-linaje.png)
 
 ## El pipeline, capa por capa
 
@@ -150,6 +158,10 @@ Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y no
 | [`99_reset_demo`](notebooks/99_reset_demo.py) | Borra las tablas y devuelve los CSV a `landing/` | — |
 
 Cada celda de código lleva un comentario que dice qué hace, y las líneas clave tienen una explicación al final.
+
+Al terminar, el catálogo queda así (las dos `staging_orders` son las tablas de paso del lote nuevo):
+
+![Catálogo fmcg con los esquemas bronze, silver y gold](docs/img/ui-catalogo.png)
 
 ### Qué pasa con cada dato malo
 
@@ -193,11 +205,11 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
 |---|---|
-| ![MERGE](deck/assets/nb-merge.png) | ![Idempotencia](deck/assets/nb-idempotencia.png) |
+| ![MERGE](docs/img/nb-merge.png) | ![Idempotencia](docs/img/nb-idempotencia.png) |
 
 Cada escritura crea una versión de la tabla, y cualquiera se puede volver a consultar: `VERSION AS OF 0` devuelve las 4.511 filas de la carga inicial aun después del `MERGE` y de la compactación.
 
-![Consulta de la versión 0 de fact_sales](deck/assets/nb-timetravel.png)
+![Consulta de la versión 0 de fact_sales](docs/img/nb-timetravel.png)
 
 ## Verificación
 
@@ -208,6 +220,8 @@ La pregunta que este proyecto responde con evidencia es «¿cómo sabes que los 
 3. Se comparan 50 cifras: filas por tabla, clientes por ciudad, productos por categoría, revenue por categoría y por mes, filas del `MERGE`, llaves duplicadas y ventas sin dimensión.
 
 Resultado: 50 de 50. La salida real de la última ejecución del job y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/). El mismo resultado se obtuvo en pruebas manuales con cómputo serverless y con el orquestador `run_all`; de esas no hay registro en el repositorio.
+
+Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos, recalcula las cifras esperadas, compara la salida guardada de la última ejecución y comprueba que los comentarios de los notebooks no alteran el código.
 
 El cálculo independiente comparte las reglas de negocio pero no el motor. Detecta errores de implementación; no detecta una regla mal elegida.
 
@@ -223,7 +237,7 @@ python3 qa/comparar.py --run <id_tarea>    # lo mismo, leyendo la ejecución con
 
 Un job de Lakeflow encadena 16 tareas: setup, cuatro cargas Bronze con parámetros distintos sobre el mismo notebook, Silver, Gold, el lote incremental, la optimización y la validación. Si una tarea falla, las siguientes no corren y la ejecución se repara desde la que falló.
 
-![Ejecución del job: 16 tareas](deck/assets/ui-corrida.png)
+![Ejecución del job: 16 tareas](docs/img/ui-corrida.png)
 
 La definición está en [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medallion-pipeline.json) y la del dashboard en [`dashboard/fmcg-ventas-gold.lvdash.json`](dashboard/fmcg-ventas-gold.lvdash.json).
 
@@ -262,45 +276,7 @@ Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un c
 4. **Ejecuta** `run_all`, que corre todo el pipeline en orden.
 5. **Comprueba:** ejecuta `98_validacion` y compara su salida con `python3 qa/comparar.py` (ver [Verificación](#verificación)).
 
-<details>
-<summary>Ejecución paso a paso, notebook por notebook</summary>
-
-Las rutas del Volume deben quedar así:
-
-```
-/Volumes/fmcg/landing/raw/initial/customers/landing/customers_batch.csv
-/Volumes/fmcg/landing/raw/initial/products/landing/products_batch.csv
-/Volumes/fmcg/landing/raw/initial/gross_price/landing/prices_batch.csv
-/Volumes/fmcg/landing/raw/initial/orders/landing/orders_batch.csv
-/Volumes/fmcg/landing/raw/incremental/orders/landing/orders_incremental_batch.csv
-```
-
-Orden de ejecución:
-
-1. `01_bronze_load` cuatro veces, con `load_mode = initial` y `data_source` = `customers`, `products`, `gross_price`, `orders`
-2. `02_silver_customers`, `03_silver_products`, `04_silver_pricing`
-3. `05_silver_orders` con `load_mode = initial`
-4. `06_gold_dims`, `07_gold_fact_full_load`
-5. `01_bronze_load` con `data_source = orders` y `load_mode = incremental`
-6. `05_silver_orders` con `load_mode = incremental`
-7. `08_gold_fact_incremental`, `09_optimize_and_kpis`
-
-Los parámetros se eligen en los desplegables de la parte superior de cada notebook (`data_source` y `load_mode`).
-
-Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. Ejecútalo siempre antes de repetir el pipeline: sin archivos en `landing/`, Bronze termina sin cargar nada, y la consulta de la versión 0 de `fact_sales` supone que esa versión es la carga inicial.
-
-</details>
-
-<details>
-<summary>Cómputo, job, dashboard y comentarios de los notebooks</summary>
-
-- **Cómputo:** serverless o un cluster de un solo nodo. Si creas el cluster a mano, elige «Nodo único»: un cluster con 0 workers sin ese modo arranca sin ejecutores y los notebooks se quedan colgados.
-- **Job:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
-- **Dashboard:** importa `dashboard/fmcg-ventas-gold.lvdash.json` desde Workspace → Importar y asígnale un SQL warehouse.
-- **Comentarios:** `python3 tools/comentar_notebooks.py --quitar` elimina los comentarios orientativos de los notebooks sin tocar el código; sin el argumento, los vuelve a poner.
-- **Datos:** `python3 data/gen_data.py` regenera los mismos CSV (semilla fija).
-
-</details>
+El paso a paso notebook por notebook, las opciones de cómputo y cómo crear el job y el dashboard están en [`docs/EJECUCION.md`](docs/EJECUCION.md).
 
 ## Estructura del repositorio
 
@@ -311,7 +287,9 @@ Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `la
 ├── jobs/          definición del job de 16 tareas
 ├── dashboard/     definición del dashboard de ventas
 ├── tools/         comentar_notebooks.py
-└── deck/          láminas de la presentación del proyecto (abrir index.html) y capturas
+├── docs/          guía de ejecución detallada y capturas del README
+├── .github/       verificación automática en cada cambio
+└── deck/          láminas con las que se presentó el proyecto en un taller; no forman parte del pipeline
 ```
 
 ## Limitaciones y siguientes pasos
@@ -321,7 +299,7 @@ Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `la
 - **Si un lote trae la misma orden con dos cantidades distintas, el `MERGE` falla** por coincidencia múltiple: no hay una regla de «gana la última». Al quitar duplicados tampoco se elige qué fila sobrevive.
 - **Los 12 productos con identificador inválido comparten `product_id = 999999`.** Hoy no tienen precio ni órdenes; si llegara una orden con ese identificador, el cruce por `product_id` la multiplicaría por 12.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
-- **Las reglas de calidad están en el código**, no declaradas como expectativas que el pipeline evalúe y reporte, y no hay CI/CD ni pruebas automáticas en cada cambio.
+- **Las reglas de calidad están en el código**, no declaradas como expectativas que el pipeline evalúe y reporte. El flujo automático comprueba la reproducibilidad de datos y cifras, pero no despliega ni ejecuta el pipeline en Databricks.
 - **Otras:** llaves naturales sin llaves sustitutas, importes en `DOUBLE` y no en `DECIMAL`, `ZORDER` sin efecto medible con menos de 5.000 filas, Change Data Feed activado sin consumidor, calendario fijo en 2026 y nombre del catálogo escrito en las celdas SQL.
 
 Siguientes pasos: ingesta con Auto Loader, expectativas de calidad con Lakeflow Declarative Pipelines, despliegue con Databricks Asset Bundles y GitHub Actions, y SCD tipo 2 en clientes.

@@ -1,0 +1,37 @@
+# Ejecución detallada
+
+[← Volver al README](../README.md)
+
+## Ejecución paso a paso, notebook por notebook
+
+Las rutas del Volume deben quedar así:
+
+```
+/Volumes/fmcg/landing/raw/initial/customers/landing/customers_batch.csv
+/Volumes/fmcg/landing/raw/initial/products/landing/products_batch.csv
+/Volumes/fmcg/landing/raw/initial/gross_price/landing/prices_batch.csv
+/Volumes/fmcg/landing/raw/initial/orders/landing/orders_batch.csv
+/Volumes/fmcg/landing/raw/incremental/orders/landing/orders_incremental_batch.csv
+```
+
+Orden de ejecución:
+
+1. `01_bronze_load` cuatro veces, con `load_mode = initial` y `data_source` = `customers`, `products`, `gross_price`, `orders`
+2. `02_silver_customers`, `03_silver_products`, `04_silver_pricing`
+3. `05_silver_orders` con `load_mode = initial`
+4. `06_gold_dims`, `07_gold_fact_full_load`
+5. `01_bronze_load` con `data_source = orders` y `load_mode = incremental`
+6. `05_silver_orders` con `load_mode = incremental`
+7. `08_gold_fact_incremental`, `09_optimize_and_kpis`
+
+Los parámetros se eligen en los desplegables de la parte superior de cada notebook (`data_source` y `load_mode`).
+
+Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. Ejecútalo siempre antes de repetir el pipeline: sin archivos en `landing/`, Bronze termina sin cargar nada, y la consulta de la versión 0 de `fact_sales` supone que esa versión es la carga inicial.
+
+## Cómputo, job, dashboard y comentarios de los notebooks
+
+- **Cómputo:** serverless o un cluster de un solo nodo. Si creas el cluster a mano, elige «Nodo único»: un cluster con 0 workers sin ese modo arranca sin ejecutores y los notebooks se quedan colgados.
+- **Job:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
+- **Dashboard:** importa `dashboard/fmcg-ventas-gold.lvdash.json` desde Workspace → Importar y asígnale un SQL warehouse.
+- **Comentarios:** `python3 tools/comentar_notebooks.py --quitar` elimina los comentarios orientativos de los notebooks sin tocar el código; sin el argumento, los vuelve a poner.
+- **Datos:** `python3 data/gen_data.py` regenera los mismos CSV (semilla fija).
