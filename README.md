@@ -4,7 +4,7 @@
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
-La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks.
+La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo de despliegue aparece en verde aunque se omita por falta de secretos.
 
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
 
@@ -22,7 +22,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 **Lo que demuestra este proyecto**
 
 - **Carga incremental que no duplica:** un `MERGE` con llave de negocio que, ejecutado dos veces con el mismo lote, inserta 0 y actualiza 0. El pipeline completo se puede volver a ejecutar sin preparar nada.
-- **Cifras verificadas:** un cálculo independiente en Python puro produce las cifras de control y el job falla solo si alguna no coincide; además, un flujo automático comprueba en cada cambio que ese cálculo sigue dando lo mismo y que coincide con la salida guardada de la última ejecución.
+- **Cifras verificadas:** un cálculo independiente en Python puro produce las cifras de control y el job falla por sí mismo si alguna no coincide; además, un flujo automático comprueba en cada cambio que ese cálculo sigue dando lo mismo y que coincide con la salida guardada de la última ejecución.
 - **Reglas explícitas para los datos malos:** cada caso se corrige, se marca o va a una tabla de cuarentena con su motivo.
 
 **Para verlo sin ejecutar nada:** la [comparación de las 60 comprobaciones](qa/evidencia/comparacion.txt), el [registro de la última ejecución](qa/evidencia/ejecucion_job.json) con la duración de cada tarea, la tabla de [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) y la [última verificación automática](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
@@ -38,7 +38,7 @@ Una distribuidora recibe cada mes cuatro archivos de sus sistemas: clientes, pro
 | Fuente | Filas | Qué trae mal |
 |---|---:|---|
 | `customers` | 196 | 12 duplicados, nombres con espacios y minúsculas, 11 formas erróneas de escribir tres ciudades, ciudades vacías |
-| `products` | 66 | 6 duplicados, categorías en minúscula, «Protien» por «Protein», 12 identificadores no numéricos |
+| `products` | 66 | 6 duplicados, categorías en minúscula, «Protien» por «Protein», 14 filas con identificador no numérico (12 productos distintos) |
 | `gross_price` | 312 | El mes en 4 formatos de fecha distintos, 24 combinaciones producto-mes con dos precios |
 | `orders` | 5.050 | 293 sin cantidad, 256 con cliente inválido, fechas en 4 formatos, 50 filas repetidas |
 | `orders` (lote nuevo) | 330 | Lo mismo, más 20 correcciones de cantidad sobre órdenes que ya existen |
@@ -156,7 +156,7 @@ Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y no
 
 ## El pipeline, capa por capa
 
-Catorce notebooks; los numerados van en orden de ejecución: `00` prepara el catálogo, `01` carga Bronze, `02` a `05` limpian en Silver, `06` a `08` construyen Gold y `09` optimiza. Están en [`notebooks/`](notebooks/).
+Catorce notebooks, más uno generado con las cifras esperadas; los numerados van en orden de ejecución: `00` prepara el catálogo, `01` carga Bronze, `02` a `05` limpian en Silver, `06` a `08` construyen Gold y `09` optimiza. Están en [`notebooks/`](notebooks/).
 
 <details>
 <summary>Ver qué hace cada notebook y cuántas filas entran y salen</summary>
@@ -189,7 +189,7 @@ Al terminar, el esquema Silver queda así: las cuatro tablas limpias, la tabla d
 | Caso | Filas | Qué se hace | Por qué |
 |---|---:|---|---|
 | Orden sin cantidad | 293 | Va a cuarentena | Sin cantidad no hay venta que medir |
-| Orden repetida | 48 | Se conserva la última leída | Misma orden, fecha, cliente y producto. El archivo trae 50; las otras 2 no tenían cantidad y ya salieron en el paso anterior |
+| Orden repetida | 48 | Se conserva la última leída | Misma orden, fecha, cliente y producto; si las dos vienen en el mismo archivo, gana la de mayor cantidad. El archivo trae 50; las otras 2 no tenían cantidad y ya salieron en el paso anterior |
 | Orden con cliente inválido | 230 | Se conserva, con cliente `999999` | La venta ocurrió; solo falta saber de quién. La cifra es de la tabla final, con el lote nuevo incluido; el archivo inicial trae 256 y parte de esas filas sale por otra regla |
 | Orden con producto inexistente | 198 | Va a cuarentena | Sin producto no hay precio para calcular el revenue |
 | Producto con identificador no numérico | 12 | Se conserva, con `product_id` `999999` | El producto existe y se identifica por `product_code`. Los 12 comparten ese `product_id`, así que no tienen precio ni órdenes |
@@ -222,7 +222,9 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
 - **Silver y Gold** usan `MERGE` con una condición de cambio: solo reescriben una fila si su cantidad (o su precio) cambió. Gold lo prueba en el propio notebook, que falla si la segunda ejecución no da 0 y 0; la validación comprueba además que, en ambas capas, todo `MERGE` posterior al primero no cambió nada.
 - **Bronze** usa Auto Loader: su *checkpoint* anota cada archivo procesado y avanza junto con la escritura, así que un archivo queda cargado exactamente una vez aunque la ejecución se interrumpa y se repita.
-- **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las mismas 60 comprobaciones, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta).
+- **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las mismas 60 comprobaciones, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
+- **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
+- **Límites conocidos:** si la ejecución se interrumpe justo después de que Auto Loader cargue un lote nuevo y antes de escribir su tabla de paso, el reintento no la reescribe y ese lote no llega a Silver hasta la siguiente carga completa. Y la validación lee el historial de las tablas (primer `MERGE`, versión 0): vale mientras ese historial se conserve.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
 |---|---|
@@ -293,7 +295,7 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ## Estructura del repositorio
 
 ```
-├── notebooks/     14 notebooks en formato fuente de Databricks (00–09, 98, 99, run_all, utilities)
+├── notebooks/     14 notebooks en formato fuente de Databricks (00–09, 98, 99, run_all, utilities) y `esperado`, generado
 ├── data/          gen_data.py y los 5 CSV ya generados (carga inicial e incremental)
 ├── qa/            oraculo.py (cálculo independiente), esperado.json (cifras esperadas), comparar.py y evidencia/ de la última ejecución
 ├── databricks.yml definición del job como Databricks Asset Bundle
@@ -307,11 +309,11 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos.
+- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Los entornos `dev` y `prod` del bundle comparten el catálogo `fmcg`, y `prod` no se ha desplegado.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades. El despliegue desde GitHub está definido, pero no se ha ejecutado: necesita los secretos de un service principal.
 
-Siguientes pasos: ingesta con Auto Loader, expectativas de calidad con Lakeflow Declarative Pipelines, despliegue con Databricks Asset Bundles y GitHub Actions, y SCD tipo 2 en clientes.
+Siguientes pasos: ejecutar el despliegue desde GitHub con un service principal, validación con reglas relativas entre cargas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, catálogo distinto por entorno y SCD tipo 2 en clientes.
 
 La lista completa está en [`docs/DISENO.md`](docs/DISENO.md#limitaciones-y-siguientes-pasos).
 

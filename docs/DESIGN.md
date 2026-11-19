@@ -8,7 +8,7 @@
 |---|---|---|
 | Unity Catalog Volume for file landing | Mounting a bucket or container with credentials | Access is governed by the catalog and the notebooks carry no secrets |
 | Flag invalid customers as `999999` and keep the sale | Drop the order | The sale happened; losing it distorts revenue. The "unknown" member keeps it visible |
-| Drop orders whose product is not in the master | Keep them without a price | Without a product there is no price and no revenue to compute |
+| Send to quarantine the orders whose product is not in the master | Keep them without a price, or drop them without a trace | Without a product there is no price and no revenue to compute |
 | A single price per product and month, the highest | Keep both | With two prices, the join with orders would duplicate sales |
 | `MERGE` with a four-column key and a change condition | Append rows or overwrite everything | A retry does not duplicate, and only what changed is rewritten |
 | Unpartitioned fact table with `OPTIMIZE ZORDER` | Partition by date | At this volume, partitioning creates one tiny file per date, more than 150 |
@@ -37,4 +37,4 @@
 - **The rules "confirmed by the business"** (the four cities and the highest price) are assumptions of the case: the data is synthetic.
 - **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` applied without measuring its effect (below 5,000 rows no difference is expected), Change Data Feed enabled with no consumer, calendar fixed to 2026 and the catalog name written out in the SQL cells.
 
-Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.
+Next steps: run the deployment from GitHub with a service principal, validation with relative rules between loads, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, a separate catalog per environment and SCD type 2 on customers.

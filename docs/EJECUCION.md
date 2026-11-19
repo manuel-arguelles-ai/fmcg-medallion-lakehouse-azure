@@ -35,7 +35,7 @@ Para empezar desde cero, `99_reset_demo` borra las tablas y la memoria de Auto L
 ## Cómputo, job, dashboard y comentarios de los notebooks
 
 - **Cómputo:** serverless o un cluster de un solo nodo. Si creas el cluster a mano, elige «Nodo único»: un cluster con 0 workers sin ese modo arranca sin ejecutores y los notebooks se quedan colgados.
-- **Job con bundle:** `databricks bundle deploy -t dev --var cluster_id=<ID_DE_TU_CLUSTER>` crea el job a partir de `databricks.yml`, y `databricks bundle run -t dev fmcg_medallion_pipeline` lo ejecuta.
+- **Job con bundle:** `databricks bundle deploy -t dev` crea el job a partir de `databricks.yml`, en serverless, y `databricks bundle run -t dev fmcg_medallion_pipeline` lo ejecuta.
 - **Job con JSON:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` (por ejemplo `/Users/<tu_usuario>/fmcg-medallion`) y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
 - **Dashboard:** importa `dashboard/fmcg-ventas-gold.lvdash.json` desde Workspace → Importar y asígnale un SQL warehouse.
 - **Comentarios:** `python3 tools/comentar_notebooks.py --quitar` elimina los comentarios orientativos de los notebooks sin tocar el código; sin el argumento, los vuelve a poner.

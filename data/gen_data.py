@@ -80,7 +80,7 @@ def gen_customers(n=180):
 def gen_products(n=60):
     rows = []
     for i in range(1, n + 1):
-        pid = 500 + i if random.random() > 0.08 else f"P{i:03d}X"  # ~8% ids inválidos
+        pid = 500 + i if random.random() > 0.08 else f"P{i:03d}X"  # algunos productos llegan con id inválido (12 en los datos generados)
         cat = random.choice(CATEGORIES)
         name = f"{cat.title().replace('Protien', 'Protien')} Bar Co {i:02d}"
         if random.random() < 0.5:

@@ -8,7 +8,7 @@
 |---|---|---|
 | Volume de Unity Catalog para la llegada de archivos | Montar un bucket o un contenedor con credenciales | El acceso lo gobierna el catálogo y los notebooks no llevan secretos |
 | Marcar clientes inválidos como `999999` y conservar la venta | Descartar la orden | La venta ocurrió; perderla distorsiona el revenue. El miembro «desconocido» la mantiene visible |
-| Descartar órdenes cuyo producto no existe en el maestro | Conservarlas sin precio | Sin producto no hay precio ni revenue que calcular |
+| Enviar a cuarentena las órdenes cuyo producto no existe en el maestro | Conservarlas sin precio, o descartarlas sin dejar rastro | Sin producto no hay precio ni revenue que calcular |
 | Un solo precio por producto y mes, el más alto | Dejar ambos | Con dos precios, el cruce con las órdenes duplicaría ventas |
 | `MERGE` con llave de cuatro columnas y condición de cambio | Agregar filas (`append`) o reemplazar todo | Reintentar no duplica, y solo se reescribe lo que cambió |
 | Tabla de hechos sin particionar, con `OPTIMIZE ZORDER` | Particionar por fecha | Con este volumen, particionar crea un archivo diminuto por cada fecha, más de 150 |
@@ -37,4 +37,4 @@
 - **Las reglas «confirmadas por negocio»** (las cuatro ciudades y el precio más alto) son supuestos del caso: los datos son sintéticos.
 - **Otras:** llaves naturales sin llaves sustitutas, importes en `DOUBLE` y no en `DECIMAL`, `ZORDER` aplicado sin medir su efecto (con menos de 5.000 filas no se espera diferencia), Change Data Feed activado sin consumidor, calendario fijo en 2026 y nombre del catálogo escrito en las celdas SQL.
 
-Siguientes pasos: ingesta con Auto Loader, expectativas de calidad con Lakeflow Declarative Pipelines, despliegue con Databricks Asset Bundles y GitHub Actions, y SCD tipo 2 en clientes.
+Siguientes pasos: ejecutar el despliegue desde GitHub con un service principal, validación con reglas relativas entre cargas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, catálogo distinto por entorno y SCD tipo 2 en clientes.

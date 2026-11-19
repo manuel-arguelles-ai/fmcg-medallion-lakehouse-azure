@@ -33,6 +33,8 @@ jobs:
         if: steps.cred.outputs.listo == 'si'
       - uses: databricks/setup-cli@main
         if: steps.cred.outputs.listo == 'si'
+        with:
+          version: 0.288.0
       - name: Validar el bundle
         if: steps.cred.outputs.listo == 'si'
         run: databricks bundle validate -t prod

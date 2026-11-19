@@ -4,7 +4,7 @@
 
 🇪🇸 [Español](README.md) · 🇺🇸 **English**
 
-The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks.
+The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks, and it cannot check that the evidence is authentic: it confirms that it matches the current notebooks. The deployment workflow shows green even when it is skipped for lack of secrets.
 
 > An Azure and Unity Catalog adaptation of the public project [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). What comes from the original and what this version adds: [Origin and authorship](#origin-and-authorship).
 
@@ -40,7 +40,7 @@ A distributor receives four files from its systems every month: customers, produ
 | Source | Rows | What is wrong |
 |---|---:|---|
 | `customers` | 196 | 12 duplicates, names with stray spaces and lowercase, 11 misspellings of three cities, empty cities |
-| `products` | 66 | 6 duplicates, lowercase categories, "Protien" instead of "Protein", 12 non-numeric identifiers |
+| `products` | 66 | 6 duplicates, lowercase categories, "Protien" instead of "Protein", 14 rows with a non-numeric identifier (12 distinct products) |
 | `gross_price` | 312 | The month in 4 different date formats, 24 product-month pairs with two prices |
 | `orders` | 5,050 | 293 without quantity, 256 with an invalid customer, dates in 4 formats, 50 repeated rows |
 | `orders` (new batch) | 330 | The same, plus 20 quantity corrections on orders that already exist |
@@ -158,7 +158,7 @@ Unity Catalog records lineage without anyone documenting it: which tables and no
 
 ## The pipeline, layer by layer
 
-Fourteen notebooks; the numbered ones go in run order: `00` prepares the catalog, `01` loads Bronze, `02` to `05` clean in Silver, `06` to `08` build Gold and `09` optimizes. They are in [`notebooks/`](notebooks/).
+Fourteen notebooks, plus a generated one with the expected figures; the numbered ones go in run order: `00` prepares the catalog, `01` loads Bronze, `02` to `05` clean in Silver, `06` to `08` build Gold and `09` optimizes. They are in [`notebooks/`](notebooks/).
 
 <details>
 <summary>See what each notebook does and how many rows go in and out</summary>
@@ -191,7 +191,7 @@ When it finishes, the Silver schema looks like this: the four clean tables, the 
 | Case | Rows | What is done | Why |
 |---|---:|---|---|
 | Order without quantity | 293 | Sent to quarantine | Without a quantity there is no sale to measure |
-| Repeated order | 48 | The last one read is kept | Same order, date, customer and product. The file has 50; the other 2 had no quantity and were already dropped in the previous step |
+| Repeated order | 48 | The last one read is kept | Same order, date, customer and product; if both come in the same file, the larger quantity wins. The file has 50; the other 2 had no quantity and were already dropped in the previous step |
 | Order with an invalid customer | 230 | Kept, with customer `999999` | The sale happened; only the buyer is unknown. The figure is from the final table, new batch included; the initial file has 256 and part of those rows are dropped by another rule |
 | Order with an unknown product | 198 | Sent to quarantine | Without a product there is no price to compute revenue |
 | Product with a non-numeric identifier | 12 | Kept, with `product_id` `999999` | The product exists and is identified by `product_code`. All 12 share that `product_id`, so they have no price and no orders |
@@ -224,7 +224,9 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
 - **Silver and Gold** use `MERGE` with a change condition: a row is only rewritten if its quantity (or its price) changed. Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0; validation also checks that, in both layers, every `MERGE` after the first one changed nothing.
 - **Bronze** uses Auto Loader: its checkpoint records every processed file and advances together with the write, so a file is loaded exactly once even if the run is interrupted and repeated.
-- **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion).
+- **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion). For these tests the result is recorded, not the full outputs.
+- **What proves what:** the idempotency of `MERGE` is shown by notebook `08`, which runs it twice with the same batch. A full re-run without a reset reaches the same result by another path: Bronze loads nothing new, and Silver and the fact table are rebuilt from all of Bronze.
+- **Known limits:** if the run is interrupted right after Auto Loader loads a new batch and before its staging table is written, the retry does not rewrite it and that batch does not reach Silver until the next full load. And validation reads the table history (first `MERGE`, version 0): it holds for as long as that history is retained.
 
 | The `MERGE`, executed | Second run and table history |
 |---|---|
@@ -295,7 +297,7 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ## Repository structure
 
 ```
-├── notebooks/     14 notebooks in Databricks source format (00–09, 98, 99, run_all, utilities)
+├── notebooks/     14 notebooks in Databricks source format (00–09, 98, 99, run_all, utilities) and `esperado`, generated
 ├── data/          gen_data.py and the 5 generated CSV files (initial and incremental load)
 ├── qa/            oraculo.py (independent calculation), esperado.json (expected figures), comparar.py and evidencia/ from the latest run
 ├── databricks.yml job definition as a Databricks Asset Bundle
@@ -309,11 +311,11 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both.
+- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both. The bundle's `dev` and `prod` targets share the `fmcg` catalog, and `prod` has not been deployed.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
 - **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities. Deployment from GitHub is defined, but it has not been executed: it needs the secrets of a service principal.
 
-Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.
+Next steps: run the deployment from GitHub with a service principal, validation with relative rules between loads, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, a separate catalog per environment and SCD type 2 on customers.
 
 The full list is in [`docs/DESIGN.md`](docs/DESIGN.md#limitations-and-next-steps).
 
