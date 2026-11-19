@@ -4,7 +4,7 @@
 
 🇪🇸 [Español](README.md) · 🇺🇸 **English**
 
-The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks, and it cannot check that the evidence is authentic: it confirms that it matches the current notebooks. The `despliegue` workflow does run it: with a service principal it deploys the bundle to `prod` and runs the whole pipeline, which turns red if a figure does not match ([recorded run](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44535633142)). In a fork without those secrets, the workflow is skipped and still shows green.
+The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks, and it cannot check that the evidence is authentic: it confirms that it matches the current notebooks. The `despliegue` workflow does run it: with a service principal it deploys the bundle to `prod` and runs the whole pipeline, which turns red if a figure does not match ([recorded run](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44541323573)). In a fork without those secrets, the workflow is skipped and still shows green.
 
 > An Azure and Unity Catalog adaptation of the public project [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). What comes from the original and what this version adds: [Origin and authorship](#origin-and-authorship).
 
@@ -62,7 +62,7 @@ flowchart LR
     G --> D["Dashboard"]
 ```
 
-The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and ends by comparing 60 control figures against an independent calculation: if any of them differs, the job fails.
+The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and ends by comparing 66 control figures against an independent calculation: if any of them differs, the job fails.
 
 Each layer answers a different question:
 
@@ -224,9 +224,9 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
 - **Silver and Gold** use `MERGE` with a change condition: a row is only rewritten if its quantity (or its price) changed. Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0; validation also checks that, in both layers, every `MERGE` after the first one changed nothing.
 - **Bronze** uses Auto Loader: its checkpoint records every processed file and advances together with the write, so a file is loaded exactly once even if the run is interrupted and repeated.
-- **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion). For these tests the result is recorded, not the full outputs.
+- **Tested, not just designed:** on serverless, a second full run without a reset ended green with the 60 checks that existed then, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion). For these tests the result is recorded, not the full outputs.
 - **What proves what:** the idempotency of `MERGE` is shown by notebook `08`, which runs it twice with the same batch. A full re-run without a reset reaches the same result by another path: Bronze loads nothing new, and Silver and the fact table are rebuilt from all of Bronze.
-- **Recovery after an interruption:** the staging table is built from the incremental Bronze rows that are newer than the ones it already holds, not from the memory of the run. If the run is interrupted after loading Bronze and before writing it, the retry rebuilds it; this is tested with [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) and the 60 figures.
+- **Recovery after an interruption:** the staging table is built from the incremental Bronze rows that are newer than the ones it already holds, not from the memory of the run. If the run is interrupted after loading Bronze and before writing it, the retry rebuilds it; this is tested with [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) and the 60 figures of that time.
 - **Validation does not depend on Delta history:** every full load and every `MERGE` is copied to a table of its own, `gold.load_log`, and validation reads from there. Delta history is trimmed over time; the log is not. It has not been tested with an already trimmed history.
 - **Malformed rows:** a value that does not fit the declared type (text where a number goes) does not silently become null: Auto Loader keeps it in `_rescued_data` and Silver sends the order to quarantine with the reason `fila_malformada`. Tested with [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Limit:** a row with extra columns is not flagged, because the CSV reader drops the surplus values; and the rule only exists for orders.
 

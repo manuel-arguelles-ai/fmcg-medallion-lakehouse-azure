@@ -58,5 +58,11 @@ OK    cuarentena orders_batch.csv · sin_cantidad | real: 293 | esperado: 293
 OK    cuarentena orders_batch.csv · producto_inexistente | real: 198 | esperado: 198
 OK    cuarentena orders_incremental_batch.csv · sin_cantidad | real: 16 | esperado: 16
 OK    cuarentena orders_incremental_batch.csv · producto_inexistente | real: 10 | esperado: 10
+OK    filas malformadas en bronze.customers | real: 0 | esperado: 0
+OK    filas malformadas en bronze.products | real: 0 | esperado: 0
+OK    filas malformadas en bronze.gross_price | real: 0 | esperado: 0
+OK    filas malformadas en bronze.orders | real: 0 | esperado: 0
+OK    cuarentena orders_batch.csv · fila_malformada | real: 0 | esperado: 0
+OK    cuarentena orders_incremental_batch.csv · fila_malformada | real: 0 | esperado: 0
 
-RESULTADO: 60 de 60 comprobaciones coinciden · TODO OK
+RESULTADO: 66 de 66 comprobaciones coinciden · TODO OK

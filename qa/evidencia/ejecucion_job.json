@@ -1,12 +1,12 @@
 {
  "estado": "SUCCESS",
- "duracion_s": 320,
- "duracion": "5 min 20 s",
- "fecha_utc": "2026-11-19 13:40",
+ "duracion_s": 367,
+ "duracion": "6 min 7 s",
+ "fecha_utc": "2026-11-19 14:13",
  "computo": {
   "tipo": "serverless",
   "despliegue": "Databricks Asset Bundle (databricks.yml), target prod, desplegado y ejecutado desde GitHub Actions con un service principal",
-  "flujo": "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44535633142"
+  "flujo": "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44541323573"
  },
  "parametros": {
   "catalog": "fmcg"
@@ -14,35 +14,35 @@
  "tareas": {
   "t00_setup": {
    "estado": "SUCCESS",
-   "segundos": 24
+   "segundos": 25
   },
   "t01_customers": {
    "estado": "SUCCESS",
-   "segundos": 38
+   "segundos": 39
   },
   "t01_orders": {
    "estado": "SUCCESS",
-   "segundos": 16
+   "segundos": 18
   },
   "t01_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 19
   },
   "t01_pricing": {
    "estado": "SUCCESS",
-   "segundos": 16
+   "segundos": 18
   },
   "t01_products": {
    "estado": "SUCCESS",
-   "segundos": 17
+   "segundos": 18
   },
   "t02_customers": {
    "estado": "SUCCESS",
-   "segundos": 18
+   "segundos": 19
   },
   "t03_products": {
    "estado": "SUCCESS",
-   "segundos": 14
+   "segundos": 15
   },
   "t04_pricing": {
    "estado": "SUCCESS",
@@ -50,53 +50,54 @@
   },
   "t05_orders": {
    "estado": "SUCCESS",
-   "segundos": 22
+   "segundos": 30
   },
   "t05_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 30
+   "segundos": 36
   },
   "t06_dims": {
    "estado": "SUCCESS",
-   "segundos": 18
+   "segundos": 19
   },
   "t07_fact_full": {
    "estado": "SUCCESS",
-   "segundos": 13
+   "segundos": 18
   },
   "t08_fact_incr": {
    "estado": "SUCCESS",
-   "segundos": 22
+   "segundos": 27
   },
   "t09_optimize": {
    "estado": "SUCCESS",
-   "segundos": 16
+   "segundos": 18
   },
   "t98_validacion": {
    "estado": "SUCCESS",
-   "segundos": 24
+   "segundos": 30
   }
  },
  "sha256_notebooks": {
   "00_setup_catalog.py": "47228a65e065ca9a",
-  "01_bronze_load.py": "5dd5dfd11f41b032",
+  "01_bronze_load.py": "147432bde8673049",
   "02_silver_customers.py": "13d242cb1d31eac5",
   "03_silver_products.py": "4d8ffa136d851ff1",
   "04_silver_pricing.py": "b320e43a5099cc6d",
-  "05_silver_orders.py": "090a599c119cdf1f",
+  "05_silver_orders.py": "2e75d3af25b2dd13",
   "06_gold_dims.py": "ebaf0365ef1afd1c",
-  "07_gold_fact_full_load.py": "720f5525d5e06203",
-  "08_gold_fact_incremental.py": "2c34e38f355617d4",
+  "07_gold_fact_full_load.py": "7c3b293efb1394a3",
+  "08_gold_fact_incremental.py": "28eba2fac1bf299f",
   "09_optimize_and_kpis.py": "df27a1af8210f8e5",
-  "98_validacion.py": "3e95ae0e714964cf",
+  "98_validacion.py": "6e7c14af33c1321c",
   "99_reset_demo.py": "d9c988cfe26070bf",
-  "esperado.py": "83a03e76b4c67570",
+  "esperado.py": "2d832839631b1f80",
   "run_all.py": "158a117928bbd04d",
-  "utilities.py": "9533c368bbcc8bc8"
+  "utilities.py": "1b3c7d41c07f7847"
  },
  "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
  "pruebas_adicionales": {
-  "corte_entre_bronze_y_tabla_de_paso": "serverless: tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso; el resto del pipeline la reconstruyó y la validación dio 60 de 60",
+  "fila_malformada": "serverless: qa/pruebas/fila_malformada.py leyó un CSV con una fila de tipo incorrecto y otra con una columna de más; la primera quedó en _rescued_data, la segunda no (límite declarado)",
+  "corte_entre_bronze_y_tabla_de_paso": "serverless: tras la carga inicial, qa/pruebas/corte_bronze.py cargó el lote incremental en Bronze y se detuvo sin escribir la tabla de paso; el resto del pipeline la reconstruyó y la validación dio 60 de 60 (versión anterior de la rama, con 60 comprobaciones)",
   "versiones_anteriores_de_esta_rama": {
    "serverless_segunda_ejecucion_sin_reset": "SUCCESS, 298 s, validación dentro del job",
    "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida",

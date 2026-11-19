@@ -4,7 +4,7 @@
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
-La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo `despliegue` sí lo ejecuta: con un service principal despliega el bundle en `prod` y corre el pipeline completo, que queda en rojo si una cifra no coincide ([corrida registrada](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44535633142)). En un fork sin esos secretos, el flujo se omite y aparece en verde igual.
+La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo `despliegue` sí lo ejecuta: con un service principal despliega el bundle en `prod` y corre el pipeline completo, que queda en rojo si una cifra no coincide ([corrida registrada](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44541323573)). En un fork sin esos secretos, el flujo se omite y aparece en verde igual.
 
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
 
@@ -60,7 +60,7 @@ flowchart LR
     G --> D["Dashboard"]
 ```
 
-Los números sobre las flechas son los notebooks de cada paso. Todo vive en el catálogo `fmcg` de Unity Catalog, sobre ADLS Gen2; un job de 16 tareas ejecuta la cadena completa y termina comparando 60 cifras de control contra un cálculo independiente: si alguna difiere, el job falla.
+Los números sobre las flechas son los notebooks de cada paso. Todo vive en el catálogo `fmcg` de Unity Catalog, sobre ADLS Gen2; un job de 16 tareas ejecuta la cadena completa y termina comparando 66 cifras de control contra un cálculo independiente: si alguna difiere, el job falla.
 
 Cada capa responde una pregunta distinta:
 
@@ -222,9 +222,9 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
 - **Silver y Gold** usan `MERGE` con una condición de cambio: solo reescriben una fila si su cantidad (o su precio) cambió. Gold lo prueba en el propio notebook, que falla si la segunda ejecución no da 0 y 0; la validación comprueba además que, en ambas capas, todo `MERGE` posterior al primero no cambió nada.
 - **Bronze** usa Auto Loader: su *checkpoint* anota cada archivo procesado y avanza junto con la escritura, así que un archivo queda cargado exactamente una vez aunque la ejecución se interrumpa y se repita.
-- **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las mismas 60 comprobaciones, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
+- **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las 60 comprobaciones que había entonces, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
 - **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
-- **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) y las 60 cifras.
+- **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) y las 60 cifras de entonces.
 - **La validación no depende del historial de Delta:** cada carga completa y cada `MERGE` se copia a una tabla propia, `gold.load_log`, y la validación lee de ahí. El historial de Delta se recorta con el tiempo; el registro, no. No está probado con un historial ya recortado.
 - **Filas malformadas:** un valor que no encaja en el tipo declarado (un texto donde va un número) no se convierte en nulo en silencio: Auto Loader lo guarda en `_rescued_data` y Silver envía la orden a cuarentena con el motivo `fila_malformada`. Probado con [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Límite:** una fila con columnas de más no se señala, porque el lector CSV descarta los valores sobrantes; y la regla solo existe para órdenes.
 
