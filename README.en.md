@@ -41,28 +41,14 @@ The business asks how much was sold, in which category, and how it evolves month
 
 ```mermaid
 flowchart LR
-    subgraph Source
-        CSV["5 CSV files<br/>initial load + new batch"]
-    end
-    subgraph UC["Unity Catalog · catalog fmcg (ADLS Gen2)"]
-        V[("Volume<br/>landing.raw")]
-        B[("Bronze<br/>4 tables<br/>what arrived")]
-        S[("Silver<br/>4 tables<br/>what is trustworthy")]
-        G[("Gold<br/>4 dimensions<br/>+ fact_sales")]
-    end
-    D["AI/BI<br/>dashboard"]
-    Q["Verification<br/>50 figures"]
-    CSV --> V
-    V -->|"01 · ingestion with traceability"| B
-    B -->|"02–05 · cleaning and rules"| S
-    S -->|"06–07 · star schema"| G
-    S -->|"08 · MERGE of the new batch"| G
-    G --> D
-    G -->|"98"| Q
-    J["Job · 16 tasks"] -. orchestrates .-> B
-    J -.-> S
-    J -.-> G
+    CSV["5 CSV files"] --> V[("Volume<br/>landing.raw")]
+    V -- "01" --> B[("Bronze<br/>what arrived")]
+    B -- "02–05" --> S[("Silver<br/>what is trustworthy")]
+    S -- "06–08" --> G[("Gold<br/>star schema")]
+    G --> D["Dashboard"]
 ```
+
+The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and ends by comparing 50 figures against an independent calculation.
 
 Each layer answers a different question:
 

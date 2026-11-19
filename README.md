@@ -39,28 +39,14 @@ El negocio pregunta cuánto se vendió, de qué categoría y cómo evoluciona me
 
 ```mermaid
 flowchart LR
-    subgraph Origen
-        CSV["5 archivos CSV<br/>carga inicial + lote nuevo"]
-    end
-    subgraph UC["Unity Catalog · catálogo fmcg (ADLS Gen2)"]
-        V[("Volume<br/>landing.raw")]
-        B[("Bronze<br/>4 tablas<br/>lo que llegó")]
-        S[("Silver<br/>4 tablas<br/>lo confiable")]
-        G[("Gold<br/>4 dimensiones<br/>+ fact_sales")]
-    end
-    D["Dashboard<br/>AI/BI"]
-    Q["Verificación<br/>50 cifras"]
-    CSV --> V
-    V -->|"01 · ingesta con trazabilidad"| B
-    B -->|"02–05 · limpieza y reglas"| S
-    S -->|"06–07 · modelo estrella"| G
-    S -->|"08 · MERGE del lote nuevo"| G
-    G --> D
-    G -->|"98"| Q
-    J["Job · 16 tareas"] -. orquesta .-> B
-    J -.-> S
-    J -.-> G
+    CSV["5 archivos CSV"] --> V[("Volume<br/>landing.raw")]
+    V -- "01" --> B[("Bronze<br/>lo que llegó")]
+    B -- "02–05" --> S[("Silver<br/>lo confiable")]
+    S -- "06–08" --> G[("Gold<br/>modelo estrella")]
+    G --> D["Dashboard"]
 ```
+
+Los números sobre las flechas son los notebooks de cada paso. Todo vive en el catálogo `fmcg` de Unity Catalog, sobre ADLS Gen2; un job de 16 tareas ejecuta la cadena completa y termina comparando 50 cifras contra un cálculo independiente.
 
 Cada capa responde una pregunta distinta:
 
