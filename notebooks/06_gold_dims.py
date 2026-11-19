@@ -65,4 +65,4 @@ print("dims OK")
 
 # MAGIC %sql
 # MAGIC -- QUÉ HACE: lista las tablas de Gold para confirmar
-# MAGIC SHOW TABLES IN fmcg.gold;
+# MAGIC SHOW TABLES IN gold;

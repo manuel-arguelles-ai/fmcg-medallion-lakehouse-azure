@@ -4,9 +4,9 @@
 # MAGIC Lee los CSV del Volume (landing) con **Auto Loader** y los guarda como tablas Delta en `bronze` **tal cual llegan**, añadiendo metadata de ingesta.
 # MAGIC
 # MAGIC - `load_mode = initial` → carga histórica.
-# MAGIC - `load_mode = incremental` → el lote nuevo va a una tabla **staging** y además se anexa al histórico bronze.
+# MAGIC - `load_mode = incremental` → el lote nuevo se anexa al histórico bronze y queda además en una tabla **staging**, que es lo que Silver procesa.
 # MAGIC
-# MAGIC Dos garantías de ingesta: el **esquema está declarado** (no se infiere) y Auto Loader **recuerda qué archivos ya cargó**, así que ejecutar el notebook otra vez no repite nada.
+# MAGIC Tres garantías de ingesta: el **esquema está declarado** (no se infiere), Auto Loader **recuerda qué archivos ya cargó** (ejecutar el notebook otra vez no repite nada) y la tabla de paso se arma con **lo que Bronze tiene y ella todavía no**, así que una ejecución interrumpida se recupera sola en el reintento.
 
 # COMMAND ----------
 
@@ -50,12 +50,12 @@ print(schema)
 
 # MAGIC %md
 # MAGIC ### Lectura con Auto Loader + metadata
-# MAGIC Auto Loader (`cloudFiles`) anota en su *checkpoint* cada archivo que procesa. Con `availableNow` carga lo pendiente y se detiene: funciona como una carga por lotes, pero con memoria. `_metadata.file_name` y `_metadata.file_size` dan la trazabilidad de cada fila.
+# MAGIC Auto Loader (`cloudFiles`) anota en su *checkpoint* cada archivo que procesa. Con `availableNow` carga lo pendiente y se detiene: funciona como una carga por lotes, pero con memoria. Cada fila guarda de qué archivo vino, cuándo se leyó y con qué tipo de carga entró.
 
 # COMMAND ----------
 
 # QUÉ HACE: prepara la lectura de los archivos pendientes y les agrega de qué archivo vino cada fila y cuándo se leyó
-inicio = spark.sql("SELECT current_timestamp() AS t").first()["t"]  # hora de inicio: sirve para saber qué filas entraron en esta ejecución
+inicio = spark.sql("SELECT CAST(current_timestamp() AS STRING) AS t").first()["t"]  # hora de inicio: solo para informar cuántas filas entraron en esta ejecución
 
 df = (spark.readStream.format("cloudFiles")  # cloudFiles = Auto Loader
       .option("cloudFiles.format", "csv")
@@ -63,6 +63,7 @@ df = (spark.readStream.format("cloudFiles")  # cloudFiles = Auto Loader
       .schema(schema)  # esquema declarado, sin inferencia
       .load(landing_path)  # vigila la carpeta completa
       .withColumn("read_timestamp", F.current_timestamp())  # cuándo se leyó
+      .withColumn("load_mode", F.lit(load_mode))  # con qué tipo de carga entró: inicial o incremental
       .select("*", "_metadata.file_name", "_metadata.file_size"))  # de qué archivo vino cada fila y cuánto pesaba
 
 # COMMAND ----------
@@ -80,29 +81,38 @@ df = (spark.readStream.format("cloudFiles")  # cloudFiles = Auto Loader
    .toTable(bronze_table)  # agrega las filas a la tabla; la crea si no existe
    .awaitTermination())  # espera a que la carga termine antes de seguir
 
-nuevas = spark.table(bronze_table).filter(F.col("read_timestamp") >= F.lit(inicio))  # las filas que entraron en esta ejecución
-n_nuevas = nuevas.count()
+bronze = spark.table(bronze_table)
+n_nuevas = bronze.filter(F.col("read_timestamp") >= F.lit(inicio).cast("timestamp")).count()  # las filas que entraron en esta ejecución
 if n_nuevas > 0:
     spark.sql(f"ALTER TABLE {bronze_table} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)")  # deja registrados los cambios fila por fila
-print("Filas nuevas en esta ejecución:", n_nuevas, "| filas en la tabla:", spark.table(bronze_table).count())  # cifra de control: debe coincidir con la lámina
+print("Filas nuevas en esta ejecución:", n_nuevas, "| filas en la tabla:", bronze.count())  # cifra de control: debe coincidir con la lámina
 if n_nuevas == 0:
-    print("Sin archivos nuevos en landing: nada que procesar")
+    print("Sin archivos nuevos en landing: nada que cargar")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ### Tabla de paso del lote nuevo
-# MAGIC En la carga incremental, Silver debe procesar solo lo que llegó en esta ejecución: esas filas se copian a una tabla *staging*. Si no llegó nada, la tabla de paso queda como estaba.
+# MAGIC En la carga incremental, Silver procesa solo el lote nuevo, que se copia a una tabla *staging*. Qué es «nuevo» no se decide con la memoria de esta ejecución, sino comparando tablas: son las filas incrementales de Bronze **más recientes que todo lo que la tabla de paso ya contiene**.
+# MAGIC
+# MAGIC Por eso el paso se recupera solo: si una ejecución se corta después de cargar Bronze y antes de escribir la tabla de paso, el reintento no encuentra archivos nuevos, pero sí filas pendientes, y la escribe. Si no hay nada pendiente, la tabla queda como estaba.
 
 # COMMAND ----------
 
-# QUÉ HACE: en la carga incremental, copia el lote recién llegado a la tabla de paso
-if load_mode == "incremental" and n_nuevas > 0:
-    (nuevas.write.format("delta")
-       .option("overwriteSchema", "true")
-       .mode("overwrite")
-       .saveAsTable(staging_table))  # el lote nuevo, solo, para que Silver procese únicamente eso
-    print("Lote nuevo →", staging_table, "|", spark.table(staging_table).count(), "filas")
+# QUÉ HACE: en la carga incremental, pasa a la tabla de paso las filas que Bronze tiene y ella todavía no
+if load_mode == "incremental":
+    pendientes = bronze.filter(F.col("load_mode") == "incremental")  # solo lo que entró por la carga incremental
+    if spark.catalog.tableExists(staging_table):
+        ya_en_paso = spark.sql(f"SELECT CAST(MAX(read_timestamp) AS STRING) AS t FROM {staging_table}").first()["t"]  # lo más reciente que la tabla de paso ya contiene
+        if ya_en_paso is not None:
+            pendientes = pendientes.filter(F.col("read_timestamp") > F.lit(ya_en_paso).cast("timestamp"))  # pendiente = más reciente que eso
+    n_pendientes = pendientes.count()
+    if n_pendientes > 0:  # sin pendientes, la tabla de paso queda como estaba
+        (pendientes.write.format("delta")
+           .option("overwriteSchema", "true")
+           .mode("overwrite")
+           .saveAsTable(staging_table))  # el lote nuevo, solo, para que Silver procese únicamente eso
+    print("Filas pendientes de pasar a Silver:", n_pendientes)
 
 # COMMAND ----------
 

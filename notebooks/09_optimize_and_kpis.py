@@ -5,10 +5,14 @@
 
 # COMMAND ----------
 
+# MAGIC %run ./utilities
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC -- QUÉ HACE: compacta los archivos de la tabla y los ordena por producto
 # MAGIC -- ZORDER acelera los filtros por product_id
-# MAGIC OPTIMIZE fmcg.gold.fact_sales ZORDER BY (product_id);
+# MAGIC OPTIMIZE gold.fact_sales ZORDER BY (product_id);
 
 # COMMAND ----------
 
@@ -20,10 +24,10 @@
 # MAGIC %sql
 # MAGIC -- QUÉ HACE: compara la tabla como estaba al inicio con la actual
 # MAGIC SELECT 'versión 0 (full load)' AS momento, COUNT(*) AS filas, round(SUM(revenue), 2) AS revenue_usd
-# MAGIC FROM fmcg.gold.fact_sales VERSION AS OF 0  -- la tabla tal como quedó en su primera escritura
+# MAGIC FROM gold.fact_sales VERSION AS OF 0  -- la tabla tal como quedó en su primera escritura
 # MAGIC UNION ALL
 # MAGIC -- esperado: 4.511 filas antes, 4.786 ahora
-# MAGIC SELECT 'actual', COUNT(*), round(SUM(revenue), 2) FROM fmcg.gold.fact_sales;
+# MAGIC SELECT 'actual', COUNT(*), round(SUM(revenue), 2) FROM gold.fact_sales;
 
 # COMMAND ----------
 
@@ -35,15 +39,15 @@
 # MAGIC %sql
 # MAGIC -- KPI 1 · Revenue total y unidades
 # MAGIC SELECT round(SUM(revenue), 2) AS revenue_usd, SUM(quantity) AS total_units, COUNT(DISTINCT order_id) AS orders
-# MAGIC FROM fmcg.gold.fact_sales;
+# MAGIC FROM gold.fact_sales;
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC -- KPI 2 · Top 10 productos por revenue
 # MAGIC SELECT dp.product, dp.category, round(SUM(f.revenue), 2) AS revenue_usd
-# MAGIC FROM fmcg.gold.fact_sales f
-# MAGIC JOIN fmcg.gold.dim_products dp ON f.product_code = dp.product_code  -- la dimensión aporta el nombre y la categoría
+# MAGIC FROM gold.fact_sales f
+# MAGIC JOIN gold.dim_products dp ON f.product_code = dp.product_code  -- la dimensión aporta el nombre y la categoría
 # MAGIC GROUP BY dp.product, dp.category
 # MAGIC ORDER BY revenue_usd DESC LIMIT 10;
 
@@ -52,8 +56,8 @@
 # MAGIC %sql
 # MAGIC -- KPI 3 · Ventas por categoría
 # MAGIC SELECT dp.category, round(SUM(f.revenue), 2) AS revenue_usd, SUM(f.quantity) AS units
-# MAGIC FROM fmcg.gold.fact_sales f
-# MAGIC JOIN fmcg.gold.dim_products dp ON f.product_code = dp.product_code
+# MAGIC FROM gold.fact_sales f
+# MAGIC JOIN gold.dim_products dp ON f.product_code = dp.product_code
 # MAGIC GROUP BY dp.category ORDER BY revenue_usd DESC;
 
 # COMMAND ----------
@@ -61,6 +65,6 @@
 # MAGIC %sql
 # MAGIC -- KPI 4 · Tendencia mensual
 # MAGIC SELECT date_trunc('MONTH', date) AS month, round(SUM(revenue), 2) AS revenue_usd
-# MAGIC FROM fmcg.gold.fact_sales
+# MAGIC FROM gold.fact_sales
 # MAGIC -- 1 = la primera columna del SELECT
 # MAGIC GROUP BY 1 ORDER BY 1;

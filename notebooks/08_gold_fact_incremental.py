@@ -97,4 +97,4 @@ print("Idempotente ✅")
 # MAGIC        operationMetrics.numTargetRowsInserted AS insertadas,
 # MAGIC        operationMetrics.numTargetRowsUpdated  AS actualizadas
 # MAGIC -- versión 0 = carga inicial; después, los dos MERGE
-# MAGIC FROM (DESCRIBE HISTORY fmcg.gold.fact_sales);
+# MAGIC FROM (DESCRIBE HISTORY gold.fact_sales);

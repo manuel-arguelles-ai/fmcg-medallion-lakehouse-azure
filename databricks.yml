@@ -7,10 +7,18 @@ bundle:
 
 # Las tareas no declaran cómputo: corren en serverless.
 
+# Cada entorno escribe en su propio catálogo: dev no toca las tablas de prod.
+variables:
+  catalog:
+    description: Catálogo de Unity Catalog donde el pipeline lee y escribe
+    default: fmcg
+
 targets:
   dev:
     mode: development
     default: true
+    variables:
+      catalog: fmcg_dev
   prod:
     mode: production
     workspace:
@@ -21,6 +29,9 @@ resources:
     fmcg_medallion_pipeline:
       name: fmcg-medallion-pipeline
       max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
       tasks:
         - task_key: t00_setup
           notebook_task:
