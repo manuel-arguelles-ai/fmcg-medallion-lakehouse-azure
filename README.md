@@ -4,7 +4,7 @@
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
-La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo de despliegue aparece en verde aunque se omita por falta de secretos.
+La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks ni puede comprobar que esa evidencia sea auténtica: confirma que corresponde a los notebooks actuales. El flujo `despliegue` sí lo ejecuta: con un service principal despliega el bundle en `prod` y corre el pipeline completo, que queda en rojo si una cifra no coincide ([corrida registrada](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44535633142)). En un fork sin esos secretos, el flujo se omite y aparece en verde igual.
 
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
 
@@ -163,7 +163,7 @@ Catorce notebooks, más uno generado con las cifras esperadas; los numerados van
 
 | Notebook | Qué hace | Entra → sale |
 |---|---|---|
-| [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Crea el catálogo, los esquemas y el Volume | — |
+| [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Comprueba que el catálogo existe y crea los esquemas y el Volume | — |
 | [`01_bronze_load`](notebooks/01_bronze_load.py) | Un solo notebook con parámetros para las 4 fuentes y los dos modos de carga. Ingesta con Auto Loader y esquema declarado: recuerda qué archivos ya cargó, y cada fila lleva su archivo de origen y su fecha de lectura | 196 · 66 · 312 · 5.050 |
 | [`02_silver_customers`](notebooks/02_silver_customers.py) | Quita duplicados, normaliza nombres, corrige ciudades con un diccionario y una lista permitida | 196 → 184 |
 | [`03_silver_products`](notebooks/03_silver_products.py) | Normaliza categoría y nombre, deriva la división comercial, genera un código determinista por producto (SHA-256 del nombre) | 66 → 60 |
@@ -224,7 +224,8 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **Bronze** usa Auto Loader: su *checkpoint* anota cada archivo procesado y avanza junto con la escritura, así que un archivo queda cargado exactamente una vez aunque la ejecución se interrumpa y se repita.
 - **Probado, no solo diseñado:** en serverless, una segunda ejecución completa sin reset terminó en verde con las mismas 60 comprobaciones, y lo mismo el orquestador `run_all` en un cluster. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas (esa prueba se hizo con la versión anterior de la ingesta). De estas pruebas se conserva el registro del resultado, no las salidas completas.
 - **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
-- **Límites conocidos:** si la ejecución se interrumpe justo después de que Auto Loader cargue un lote nuevo y antes de escribir su tabla de paso, el reintento no la reescribe y ese lote no llega a Silver hasta la siguiente carga completa. Y la validación lee el historial de las tablas (primer `MERGE`, versión 0): vale mientras ese historial se conserve.
+- **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) y las 60 cifras.
+- **Límite conocido:** la validación lee el historial de las tablas (primer `MERGE`, versión 0): vale mientras ese historial se conserve.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
 |---|---|
@@ -281,7 +282,7 @@ Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un c
    ```bash
    databricks workspace import-dir notebooks /Users/<tu_usuario>/fmcg-medallion
    ```
-2. **Ejecuta** `00_setup_catalog`. Si tu metastore no permite `CREATE CATALOG` sin ubicación, crea el catálogo `fmcg` desde el Explorador de catálogos y vuelve a ejecutar.
+2. **Crea el catálogo** `fmcg` desde el Explorador de catálogos (o con `databricks catalogs create`) y **ejecuta** `00_setup_catalog`, que crea los esquemas y el Volume. Si el catálogo no existe, el notebook se detiene y dice cómo crearlo. Para usar otro nombre, cambia el parámetro `catalog`.
 3. **Sube los CSV** de `data/landing/` al Volume, respetando las carpetas:
    ```bash
    databricks fs cp -r data/landing dbfs:/Volumes/fmcg/landing/raw
@@ -309,11 +310,11 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Los entornos `dev` y `prod` del bundle comparten el catálogo `fmcg`, y `prod` no se ha desplegado.
+- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos. Cada entorno del bundle escribe en su catálogo: `prod` en `fmcg` (desplegado y ejecutado desde GitHub) y `dev` en `fmcg_dev`, que hay que crear antes y que en este proyecto no se creó: `dev` se probó apuntando a `fmcg` con `--var catalog=fmcg`.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
-- **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades. El despliegue desde GitHub está definido, pero no se ha ejecutado: necesita los secretos de un service principal.
+- **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
 
-Siguientes pasos: ejecutar el despliegue desde GitHub con un service principal, validación con reglas relativas entre cargas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, catálogo distinto por entorno y SCD tipo 2 en clientes.
+Siguientes pasos: validación con reglas relativas entre cargas y que no dependa del historial de las tablas, expectativas de calidad con Lakeflow Declarative Pipelines, alertas ante fallos, crear y probar el catálogo de `dev` y SCD tipo 2 en clientes.
 
 La lista completa está en [`docs/DISENO.md`](docs/DISENO.md#limitaciones-y-siguientes-pasos).
 

@@ -4,7 +4,7 @@
 
 🇪🇸 [Español](README.md) · 🇺🇸 **English**
 
-The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks, and it cannot check that the evidence is authentic: it confirms that it matches the current notebooks. The deployment workflow shows green even when it is skipped for lack of secrets.
+The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks, and it cannot check that the evidence is authentic: it confirms that it matches the current notebooks. The `despliegue` workflow does run it: with a service principal it deploys the bundle to `prod` and runs the whole pipeline, which turns red if a figure does not match ([recorded run](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/runs/44535633142)). In a fork without those secrets, the workflow is skipped and still shows green.
 
 > An Azure and Unity Catalog adaptation of the public project [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). What comes from the original and what this version adds: [Origin and authorship](#origin-and-authorship).
 
@@ -165,7 +165,7 @@ Fourteen notebooks, plus a generated one with the expected figures; the numbered
 
 | Notebook | What it does | In → out |
 |---|---|---|
-| [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Creates the catalog, the schemas and the Volume | — |
+| [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Checks that the catalog exists and creates the schemas and the Volume | — |
 | [`01_bronze_load`](notebooks/01_bronze_load.py) | A single parameterized notebook for the 4 sources and both load modes. Ingestion with Auto Loader and a declared schema: it remembers which files it already loaded, and every row carries its source file and read timestamp | 196 · 66 · 312 · 5,050 |
 | [`02_silver_customers`](notebooks/02_silver_customers.py) | Removes duplicates, normalizes names, fixes cities with a dictionary and an allow-list | 196 → 184 |
 | [`03_silver_products`](notebooks/03_silver_products.py) | Normalizes category and name, derives the commercial division, generates a deterministic code per product (SHA-256 of the name) | 66 → 60 |
@@ -226,7 +226,8 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **Bronze** uses Auto Loader: its checkpoint records every processed file and advances together with the write, so a file is loaded exactly once even if the run is interrupted and repeated.
 - **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion). For these tests the result is recorded, not the full outputs.
 - **What proves what:** the idempotency of `MERGE` is shown by notebook `08`, which runs it twice with the same batch. A full re-run without a reset reaches the same result by another path: Bronze loads nothing new, and Silver and the fact table are rebuilt from all of Bronze.
-- **Known limits:** if the run is interrupted right after Auto Loader loads a new batch and before its staging table is written, the retry does not rewrite it and that batch does not reach Silver until the next full load. And validation reads the table history (first `MERGE`, version 0): it holds for as long as that history is retained.
+- **Recovery after an interruption:** the staging table is built from the incremental Bronze rows that are newer than the ones it already holds, not from the memory of the run. If the run is interrupted after loading Bronze and before writing it, the retry rebuilds it; this is tested with [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py) and the 60 figures.
+- **Known limit:** validation reads the table history (first `MERGE`, version 0): it holds for as long as that history is retained.
 
 | The `MERGE`, executed | Second run and table history |
 |---|---|
@@ -283,7 +284,7 @@ You need a Databricks workspace with Unity Catalog and permission to create a ca
    ```bash
    databricks workspace import-dir notebooks /Users/<your_user>/fmcg-medallion
    ```
-2. **Run** `00_setup_catalog`. If your metastore does not allow `CREATE CATALOG` without a location, create the `fmcg` catalog from Catalog Explorer and run it again.
+2. **Create the catalog** `fmcg` from Catalog Explorer (or with `databricks catalogs create`) and **run** `00_setup_catalog`, which creates the schemas and the Volume. If the catalog does not exist, the notebook stops and says how to create it. To use another name, change the `catalog` parameter.
 3. **Upload the CSV files** from `data/landing/` to the Volume, keeping the folders:
    ```bash
    databricks fs cp -r data/landing dbfs:/Volumes/fmcg/landing/raw
@@ -311,11 +312,11 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both. The bundle's `dev` and `prod` targets share the `fmcg` catalog, and `prod` has not been deployed.
+- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both. Each bundle target writes to its own catalog: `prod` to `fmcg` (deployed and run from GitHub) and `dev` to `fmcg_dev`, which must be created first and was not created in this project: `dev` was tested pointing at `fmcg` with `--var catalog=fmcg`.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
-- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities. Deployment from GitHub is defined, but it has not been executed: it needs the secrets of a service principal.
+- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities.
 
-Next steps: run the deployment from GitHub with a service principal, validation with relative rules between loads, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, a separate catalog per environment and SCD type 2 on customers.
+Next steps: validation with relative rules between loads that does not depend on table history, quality expectations with Lakeflow Declarative Pipelines, alerts on failure, creating and testing the `dev` catalog and SCD type 2 on customers.
 
 The full list is in [`docs/DESIGN.md`](docs/DESIGN.md#limitations-and-next-steps).
 
