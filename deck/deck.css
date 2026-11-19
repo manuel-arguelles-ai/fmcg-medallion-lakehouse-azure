@@ -234,3 +234,15 @@ td .ic,.note .ic{width:2.05em;height:2.05em;vertical-align:-.7em;padding:.14em;b
 body.tema-claro .note a,body.tema-claro .slide a{color:var(--accent2)}
 body.tema-claro .note a:hover,body.tema-claro .slide a:hover{color:var(--accent)}
 @media (max-width:820px){td code{word-break:normal;overflow-wrap:anywhere}}
+
+/* enlaces a los recursos reales y al repositorio, en la línea superior de cada lámina */
+.kicker{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5em 1.6em}
+.lk{display:inline-flex;flex-wrap:wrap;gap:.4em 1.3em;letter-spacing:.02em;text-transform:none;font-weight:600}
+.lk span{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:.35em .55em}
+.lk b{color:var(--muted);font-weight:700;font-size:.9em;text-transform:uppercase;letter-spacing:.1em}
+.lk a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent2);text-underline-offset:.2em;
+  padding:.05em .1em;border-radius:3px}
+.lk a:hover,.lk a:focus-visible{background:var(--accent2);color:var(--paper);text-decoration:none}
+.note a{color:inherit;text-decoration:underline;text-decoration-color:var(--accent2);text-underline-offset:.2em}
+#refsPanel ul{padding-left:1.1em}
+#refsPanel ul{font-size:.8rem;line-height:1.4}

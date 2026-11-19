@@ -28,6 +28,66 @@ REFS = {
 }
 
 
+GH = "https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure"
+NB = {"00": "00_setup_catalog", "01": "01_bronze_load", "02": "02_silver_customers", "03": "03_silver_products",
+      "04": "04_silver_pricing", "05": "05_silver_orders", "06": "06_gold_dims", "07": "07_gold_fact_full_load",
+      "08": "08_gold_fact_incremental", "09": "09_optimize_and_kpis", "98": "98_validacion", "99": "99_reset_demo"}
+# Enlaces al workspace y al portal: solo existen en la copia del presentador (archivo local, fuera del repositorio).
+_priv = os.path.join(AQUI, "links.local.json")
+PRIV = json.load(open(_priv)) if os.path.exists(_priv) else {}
+
+
+def gh(ruta=""):
+    return GH + ("/" + ruta if ruta else "")
+
+
+# lámina -> (enlaces al recurso real [etiqueta, clave de PRIV], enlaces al repositorio [etiqueta, ruta])
+def _nb(*nums):
+    return [(n_, "nb" + n_) for n_ in nums], [(n_, f"blob/main/notebooks/{NB[n_]}.py") for n_ in nums]
+
+
+def _mas(par, vivos=(), repo=()):
+    return par[0] + list(vivos), par[1] + list(repo)
+
+
+ENLACES = {
+    1: ([], [("repositorio del taller", "")]),
+    9: ([], [("nuestra versión", "")]),
+    11: ([("Volume raw", "volume")], [("gen_data.py", "blob/main/data/gen_data.py"), ("CSV", "tree/main/data/landing")]),
+    12: ([("carpeta del proyecto", "carpeta")], [("notebooks/", "tree/main/notebooks")]),
+    13: ([("Volume raw", "volume"), ("contenedor fmcg en Azure", "adls")], [("CSV", "tree/main/data/landing")]),
+    14: _mas(_nb("00", "01"), [("esquema bronze", "bronze")]),
+    15: _mas(_nb("02", "03", "04"), [("esquema silver", "silver")]),
+    16: _mas(_nb("02"), [("silver.customers", "silver.customers")]),
+    17: _mas(_nb("05"), [("silver.orders", "silver.orders")]),
+    18: _mas(_nb("06"), [("esquema gold", "gold")]),
+    19: _mas(_nb("07"), [("fact_sales", "fact")]),
+    20: ([("catálogo fmcg", "catalogo")], []),
+    21: _mas(_nb("08"), [("fact_sales", "fact")]),
+    22: _mas(_nb("08"), [("historial", "historial")]),
+    23: _mas(_nb("09"), [("historial", "historial")]),
+    24: ([("linaje de fact_sales", "linaje")], []),
+    25: _mas(_nb("09"), [("dashboard", "dashboard")]),
+    26: ([("job", "job")], [("notebooks/", "tree/main/notebooks")]),
+    27: ([("corrida", "corrida"), ("job", "job")], []),
+    29: _mas(_nb("98"), repo=[("oraculo.py", "blob/main/qa/oraculo.py"), ("esperado.json", "blob/main/qa/esperado.json")]),
+    31: ([], [("repositorio", ""), ("guía paso a paso", "blob/main/README.md")]),
+    32: ([], [("repositorio", "")]),
+}
+
+
+def enlaces(i):
+    vivos, repo = ENLACES.get(i, ([], []))
+    a = lambda t, u: f"<a href='{html.escape(u, quote=True)}' target='_blank' rel='noopener'>{t}</a>"
+    grupos = []
+    v = [a(t, PRIV[k]) for t, k in vivos if k in PRIV]
+    if v:
+        grupos.append("<span><b>Abrir</b>" + "".join(v) + "</span>")
+    if repo:
+        grupos.append("<span><b>GitHub</b>" + "".join(a(t, gh(r)) for t, r in repo) + "</span>")
+    return f"<span class='lk'>{''.join(grupos)}</span>" if grupos else ""
+
+
 def mk(*keys):
     return "".join(
         f"<a class='mk' href='{REFS[k][1]}' target='_blank' rel='noopener' title='{html.escape(REFS[k][0])}' "
@@ -403,7 +463,7 @@ slide("", "117-119", "Para repetirlo",
           ("", "3 · Notebooks", "Importa la carpeta <code>notebooks/</code> y ejecútalos en el orden de la guía: el lote incremental repite <code>01</code> y <code>05</code> antes del <code>08</code>.", "O usa <code>run_all</code>, que hace todo"),
           ("", "4 · Comprueba", "Compara tus cifras con las de este deck: deben coincidir.", f"{n(f1['rows'])} filas · US$ {n(f1['revenue'], 2)}"),
       ], "cuatro")
-      + "<p class='note'>El taller corre en un workspace Premium de Azure Databricks creado con la prueba gratuita de Azure (Azure Free Trial): ahí se probó todo, en DBR 16.4 y en serverless. El material (notebooks, datos, verificación y una guía paso a paso) está en <code>github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure</code>.</p>")
+      + "<p class='note'>El taller corre en un workspace Premium de Azure Databricks creado con la prueba gratuita de Azure (Azure Free Trial): ahí se probó todo, en DBR 16.4 y en serverless. El material (notebooks, datos, verificación y una guía paso a paso) está en <a href='" + GH + "' target='_blank' rel='noopener'>github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure</a>.</p>")
 
 slide("hero", "119-120", "Tu siguiente paso",
       "Cambia el rubro, conserva la arquitectura y publícalo con tus decisiones explicadas",
@@ -423,9 +483,20 @@ for i, (cls, t, kicker, titulo, cuerpo, nota) in enumerate(S, 1):
     aside = f"<aside class='pres' hidden>{html.escape(nota)}</aside>" if nota else ""
     secs.append(
         f"<section class='slide {cls}' id='s{i:02d}' data-n='{i}' data-time='{t}'>"
-        f"<p class='kicker'>{kicker}</p><h2>{titulo}</h2>{cuerpo}{aside}"
+        f"<p class='kicker'><span>{kicker}</span>{enlaces(i)}</p><h2>{titulo}</h2>{cuerpo}{aside}"
         f"<footer class='foot'><span>Taller solidario · Portafolio de datos End-to-End</span><span>{i}/{total}</span></footer></section>")
 
+def _li(t, u):
+    return f"<li>{html.escape(t)} — <a href='{html.escape(u, quote=True)}' target='_blank' rel='noopener'>{html.escape(u if len(u) < 90 else u[:87] + '…')}</a></li>"
+
+
+rec = [("Repositorio del taller", GH), ("Guía paso a paso", gh("blob/main/README.md")), ("Notebooks", gh("tree/main/notebooks")),
+       ("Datos y generador", gh("tree/main/data")), ("Verificación", gh("tree/main/qa"))]
+ETQ = {"carpeta": "Carpeta del proyecto en el workspace", "volume": "Volume raw", "adls": "Contenedor fmcg en el portal de Azure",
+       "catalogo": "Catálogo fmcg", "fact": "Tabla gold.fact_sales", "historial": "Historial de fact_sales", "linaje": "Linaje de fact_sales",
+       "dashboard": "Dashboard FMCG · Ventas (Gold)", "job": "Job fmcg-medallion-pipeline", "corrida": "Última corrida del job"}
+rec += [(t, PRIV[k]) for k, t in ETQ.items() if k in PRIV] + [(f"Notebook {v}", PRIV["nb" + k]) for k, v in NB.items() if "nb" + k in PRIV]
+recursos = "".join(_li(t, u) for t, u in rec)
 refs = "".join(f"<li>{html.escape(t)} — <a href='{u}' target='_blank' rel='noopener'>{u}</a></li>" for t, u in REFS.values())
 doc = f"""<!doctype html>
 <html lang="es">
@@ -456,6 +527,8 @@ doc = f"""<!doctype html>
   <button id="refsClose">Cerrar ✕</button>
   <h3>Fuentes del taller</h3>
   <ol>{refs}</ol>
+  <h3>Recursos del proyecto</h3>
+  <ul>{recursos}</ul>
 </aside>
 <script src="deck.js"></script>
 </body>
