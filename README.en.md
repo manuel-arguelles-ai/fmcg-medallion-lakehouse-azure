@@ -222,10 +222,10 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
 - **Silver and Gold** use `MERGE` with a change condition: a row is only rewritten if its quantity (or its price) changed. Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0; validation also checks that, in both layers, every `MERGE` after the first one changed nothing.
 - **Bronze** uses Auto Loader: its checkpoint records every processed file and advances together with the write, so a file is loaded exactly once even if the run is interrupted and repeated.
-- **Tested, not just designed:** with this same code, on serverless and against the `dev` catalog, a second full run without a reset ended green on all 66 checks, and so did the `run_all` orchestrator from scratch. With an unexpected order added in a new file, the job failed and flagged the 11 affected figures. For these tests the [result is recorded](qa/evidencia/ejecucion_job.json), not the full outputs.
+- **Tested, not just designed:** with this same code, on serverless and against the `dev` catalog, a second full run without a reset ended green on all 66 checks, and so did the `run_all` orchestrator, from scratch on serverless and without a reset on a single-node cluster. With an unexpected order added in a new file, the job failed and flagged the 11 affected figures. For these tests the [result is recorded](qa/evidencia/ejecucion_job.json), not the full outputs.
 - **What proves what:** the idempotency of `MERGE` is shown by notebook `08`, which runs it twice with the same batch. A full re-run without a reset reaches the same result by another path: Bronze loads nothing new, and Silver and the fact table are rebuilt from all of Bronze.
 - **Recovery after an interruption:** the staging table is built from the incremental Bronze rows that are newer than the ones it already holds, not from the memory of the run. If the run is interrupted after loading Bronze and before writing it, the retry rebuilds it; this is tested with [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py): after the interruption, the rest of the pipeline passed 66 of 66.
-- **Validation does not depend on Delta history:** every full load and every `MERGE` is copied to a table of its own, `gold.load_log`, and validation reads from there. Delta history is trimmed over time; the log is not. It has not been tested with an already trimmed history.
+- **Validation does not depend on Delta history:** every full load and every `MERGE` is copied to a table of its own, `gold.load_log`, and validation reads from there. Delta history is trimmed over time; the log is not. Tested with [`qa/pruebas/historial_recortado.py`](qa/pruebas/historial_recortado.py), which replaces the tables with clones that have no history: validation passed 66 of 66. It is a simulation, because the real Delta trimming cannot be forced within a day.
 - **Malformed rows:** a value that does not fit the declared type (text where a number goes) does not silently become null: Auto Loader keeps it in `_rescued_data` and Silver sends the order to quarantine with the reason `fila_malformada`. Tested with [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Limit:** a row with extra columns is not flagged, because the CSV reader drops the surplus values; and the rule only exists for orders.
 
 | The `MERGE`, executed | Second run and table history |
@@ -301,13 +301,13 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ```
 ├── notebooks/     14 notebooks in Databricks source format (00–09, 98, 99, run_all, utilities) and `esperado`, generated
 ├── data/          gen_data.py and the 5 generated CSV files (initial and incremental load)
-├── qa/            oraculo.py (independent calculation), esperado.json (expected figures), comparar.py and evidencia/ from the latest run
+├── qa/            oraculo.py (independent calculation), esperado.json (expected figures), comparar.py, evidencia/ from the latest run and additional tests in pruebas/
 ├── databricks.yml job definition as a Databricks Asset Bundle
 ├── jobs/          the same definition as JSON
 ├── dashboard/     definition of the sales dashboard
 ├── tools/         utility to remove or restore the notebook comments
 ├── docs/          run guide, design decisions and limitations, and README screenshots
-└── .github/       automated verification on every change
+└── .github/       automated verification on every change and deployment from GitHub
 ```
 
 ## Limitations and next steps

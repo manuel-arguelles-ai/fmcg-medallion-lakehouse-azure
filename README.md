@@ -220,10 +220,10 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
 - **Silver y Gold** usan `MERGE` con una condición de cambio: solo reescriben una fila si su cantidad (o su precio) cambió. Gold lo prueba en el propio notebook, que falla si la segunda ejecución no da 0 y 0; la validación comprueba además que, en ambas capas, todo `MERGE` posterior al primero no cambió nada.
 - **Bronze** usa Auto Loader: su *checkpoint* anota cada archivo procesado y avanza junto con la escritura, así que un archivo queda cargado exactamente una vez aunque la ejecución se interrumpa y se repita.
-- **Probado, no solo diseñado:** con este mismo código, en serverless y sobre el catálogo de `dev`, una segunda ejecución completa sin reset terminó en verde con las 66 comprobaciones, y lo mismo el orquestador `run_all` desde cero. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas. De estas pruebas se conserva el [registro del resultado](qa/evidencia/ejecucion_job.json), no las salidas completas.
+- **Probado, no solo diseñado:** con este mismo código, en serverless y sobre el catálogo de `dev`, una segunda ejecución completa sin reset terminó en verde con las 66 comprobaciones, y lo mismo el orquestador `run_all`, desde cero en serverless y sin reset en un cluster de un nodo. Con una orden inesperada añadida en un archivo nuevo, el job terminó en rojo y señaló las 11 cifras afectadas. De estas pruebas se conserva el [registro del resultado](qa/evidencia/ejecucion_job.json), no las salidas completas.
 - **Qué prueba cada cosa:** la idempotencia del `MERGE` la demuestra el notebook `08`, que lo ejecuta dos veces con el mismo lote. Una re-ejecución completa sin reset llega al mismo resultado por otro camino: Bronze no carga nada nuevo y Silver y la tabla de hechos se reconstruyen desde todo Bronze.
 - **Recuperación ante un corte:** la tabla de paso se arma con las filas incrementales de Bronze más recientes que las que ya contiene, no con la memoria de la ejecución. Si la ejecución se interrumpe después de cargar Bronze y antes de escribirla, el reintento la reconstruye; está probado con [`qa/pruebas/corte_bronze.py`](qa/pruebas/corte_bronze.py): tras el corte, el resto del pipeline dio 66 de 66.
-- **La validación no depende del historial de Delta:** cada carga completa y cada `MERGE` se copia a una tabla propia, `gold.load_log`, y la validación lee de ahí. El historial de Delta se recorta con el tiempo; el registro, no. No está probado con un historial ya recortado.
+- **La validación no depende del historial de Delta:** cada carga completa y cada `MERGE` se copia a una tabla propia, `gold.load_log`, y la validación lee de ahí. El historial de Delta se recorta con el tiempo; el registro, no. Probado con [`qa/pruebas/historial_recortado.py`](qa/pruebas/historial_recortado.py), que sustituye las tablas por clones sin historial: la validación dio 66 de 66. Es una simulación, porque el recorte real de Delta no se puede forzar en el día.
 - **Filas malformadas:** un valor que no encaja en el tipo declarado (un texto donde va un número) no se convierte en nulo en silencio: Auto Loader lo guarda en `_rescued_data` y Silver envía la orden a cuarentena con el motivo `fila_malformada`. Probado con [`qa/pruebas/fila_malformada.py`](qa/pruebas/fila_malformada.py). **Límite:** una fila con columnas de más no se señala, porque el lector CSV descarta los valores sobrantes; y la regla solo existe para órdenes.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
@@ -299,13 +299,13 @@ El pipeline se puede volver a ejecutar sin preparar nada: una segunda ejecución
 ```
 ├── notebooks/     14 notebooks en formato fuente de Databricks (00–09, 98, 99, run_all, utilities) y `esperado`, generado
 ├── data/          gen_data.py y los 5 CSV ya generados (carga inicial e incremental)
-├── qa/            oraculo.py (cálculo independiente), esperado.json (cifras esperadas), comparar.py y evidencia/ de la última ejecución
+├── qa/            oraculo.py (cálculo independiente), esperado.json (cifras esperadas), comparar.py, evidencia/ de la última ejecución y pruebas/ adicionales
 ├── databricks.yml definición del job como Databricks Asset Bundle
 ├── jobs/          la misma definición en JSON
 ├── dashboard/     definición del dashboard de ventas
 ├── tools/         utilidad para quitar o poner los comentarios de los notebooks
 ├── docs/          guía de ejecución, decisiones de diseño y limitaciones, y capturas del README
-└── .github/       verificación automática en cada cambio
+└── .github/       verificación automática en cada cambio y despliegue desde GitHub
 ```
 
 ## Limitaciones y siguientes pasos
