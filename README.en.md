@@ -4,6 +4,8 @@
 
 🇪🇸 [Español](README.md) · 🇺🇸 **English**
 
+The `CI` badge checks that the data and the figures are reproducible and that the stored evidence matches the current code. It does not run the pipeline on Databricks.
+
 > An Azure and Unity Catalog adaptation of the public project [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). What comes from the original and what this version adds: [Origin and authorship](#origin-and-authorship).
 
 An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor: it takes CSV files with real-world data entry errors, cleans them with explicit business rules, models them as a star schema and publishes them in a dashboard. Each new batch of orders is integrated with `MERGE` without duplicating sales, and every figure is checked against an independent calculation.
@@ -12,7 +14,7 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 |---|---|
 | **Result** | 13 Delta tables across three layers (plus two staging tables for the new batch) · 4,786 sales lines · US$ 684,393.99 in revenue · 50 of 50 figures verified |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · PySpark · Spark SQL · Lakeflow Jobs · AI/BI Dashboards · ADLS Gen2 |
-| **Run time** | About 4 minutes end to end with the job on a 4-core single-node cluster ([3 min 51 s in the latest run](qa/evidencia/ejecucion_job.json)) |
+| **Run time** | About 4 minutes end to end with the job on a 4-core single-node cluster that is already running ([3 min 51 s in the latest run](qa/evidencia/ejecucion_job.json)) |
 | **Data** | Synthetic and reproducible: 5 CSV files, 5,954 rows, generated with a fixed seed |
 
 ![Dashboard "FMCG · Ventas (Gold)"](docs/img/dashboard.png)
@@ -155,7 +157,7 @@ Unity Catalog records lineage without anyone documenting it: which tables and no
 
 ## The pipeline, layer by layer
 
-Fourteen notebooks numbered in run order: `00` prepares the catalog, `01` loads Bronze, `02` to `05` clean in Silver, `06` to `08` build Gold and `09` optimizes. They are in [`notebooks/`](notebooks/).
+Fourteen notebooks; the numbered ones go in run order: `00` prepares the catalog, `01` loads Bronze, `02` to `05` clean in Silver, `06` to `08` build Gold and `09` optimizes. They are in [`notebooks/`](notebooks/).
 
 <details>
 <summary>See what each notebook does and how many rows go in and out</summary>
@@ -177,15 +179,13 @@ Fourteen notebooks numbered in run order: `00` prepares the catalog, `01` loads 
 
 </details>
 
-Every code cell carries a comment saying what it does, and the key lines have a trailing explanation.
+Code cells carry a comment saying what they do, and the key lines have a trailing explanation.
 
 When it finishes, the catalog looks like this (the two `staging_orders` are the staging tables of the new batch):
 
 ![Catalog fmcg with the bronze, silver and gold schemas](docs/img/ui-catalogo.png)
 
 ### What happens to each bad record
-
-The policy is not the same for every case, and each difference has a reason:
 
 | Case | Rows | What is done | Why |
 |---|---:|---|---|
@@ -194,7 +194,7 @@ The policy is not the same for every case, and each difference has a reason:
 | Order with an invalid customer | 230 | Kept, with customer `999999` | The sale happened; only the buyer is unknown. The figure is from the final table, new batch included; the initial file has 256 and part of those rows are dropped by another rule |
 | Order with an unknown product | 198 | Dropped | Without a product there is no price to compute revenue |
 | Product with a non-numeric identifier | 12 | Kept, with `product_id` `999999` | The product exists and is identified by `product_code`. All 12 share that `product_id`, so they have no price and no orders |
-| Customer without a valid city | 19 | 4 get the city confirmed by the business and 15 stay as "Sin ciudad" (no city) | No value is invented that nobody confirmed |
+| Customer without a valid city | 19 | 4 get a confirmed city (an assumption of the case) and 15 stay as "Sin ciudad" (no city) | No value is invented that nobody confirmed |
 
 The counts for orders without quantity, repeated orders and unknown products refer to the initial load and come from the counts printed by notebook `05`; the independent calculation checks the result of the chain (4,511), not each intermediate step. Dropped rows are counted at each step of the notebook, but they are not stored in a quarantine table.
 
@@ -221,7 +221,7 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 
 - **Quantity is left out of the key on purpose.** The 20 corrections in the batch change the quantity of an existing order: with quantity in the key they would be 20 new sales, not 20 updates.
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
-- **Scope of the guarantee.** Silver and Gold are idempotent because of `MERGE`; the change condition exists only in Gold, and the Silver one rewrites everything that matches even though the result is the same.
+- **Scope of the guarantee.** Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0. Silver is idempotent by design, with no test of its own; the change condition exists only in Gold, and the Silver one rewrites everything that matches even though the result is the same.
 - **Bronze does not have that guarantee.** In Bronze, the initial load overwrites the table and the new batch is appended to the history; to avoid reloading a file, it is moved from `landing/` to `processed/`. If the job fails between the write and the move, that file would end up twice in the Bronze history. It does not reach Silver, because the new batch is read from a staging table that is overwritten on every load, but file tracking is manual; Auto Loader would solve it.
 
 | The `MERGE`, executed | Second run and table history |
@@ -240,7 +240,7 @@ Every write creates a version of the table, and it can be queried again for as l
 
 Result: 50 of 50. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/). The same result was obtained in manual tests on serverless compute and with the `run_all` orchestrator; those are not recorded in the repository.
 
-A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data, recomputes the expected figures, compares the stored output of the latest run and checks that the notebook comments do not alter the code.
+A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
 
 The independent calculation shares the business rules but not the engine. It detects implementation errors; it does not detect a badly chosen rule.
 
@@ -266,19 +266,10 @@ The job definition is in [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medalli
 |---|---|---|
 | Unity Catalog Volume for file landing | Mounting a bucket or container with credentials | Access is governed by the catalog and the notebooks carry no secrets |
 | Flag invalid customers as `999999` and keep the sale | Drop the order | The sale happened; losing it distorts revenue. The "unknown" member keeps it visible |
-| Drop orders whose product is not in the master | Keep them without a price | Without a product there is no price and no revenue to compute |
-| A single price per product and month, the highest | Keep both | With two prices, the join with orders would duplicate sales |
 | `MERGE` with a four-column key and a change condition | Append rows or overwrite everything | A retry does not duplicate, and only what changed is rewritten |
-| Unpartitioned fact table with `OPTIMIZE ZORDER` | Partition by date | At this volume, partitioning creates one tiny file per date, more than 150 |
-| Dimensions rebuilt in full on every run | `MERGE` on dimensions too | They are small and their history is not needed in this case |
-| Calendar generated for the whole year | Only dates with sales | Future batches always find their date |
 | Verification against an independent calculation | Trusting that the notebook ran without errors | Running does not prove the number is correct |
 
-### What did not work the first time
-
-- **Tasks "running" for hours without writing anything.** The first hypothesis was a capacity shortage in the region. The real cause: the cluster was created with 0 workers and without single-node mode, so it started with nothing to execute the work. It was found by reading the cluster configuration, not by retrying.
-- **Risk of duplicated sales.** There were 24 product-month pairs with two prices. It was detected by inspecting the data before doing the join.
-- **The idempotency proof could not be repeated.** The notebook dropped the intermediate table when it finished. It surfaced when running the full demonstration twice.
+The full decision table, what did not work the first time and all the limitations are in [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## How to run it
 
@@ -308,8 +299,8 @@ Before repeating the pipeline, run `99_reset_demo`: without that step, a second 
 ├── qa/            oraculo.py (independent calculation), esperado.json (expected figures), comparar.py and evidencia/ from the latest run
 ├── jobs/          definition of the 16-task job
 ├── dashboard/     definition of the sales dashboard
-├── tools/         comentar_notebooks.py
-├── docs/          detailed run guide and README screenshots
+├── tools/         utility to remove or restore the notebook comments
+├── docs/          run guide, design decisions and limitations, and README screenshots
 └── .github/       automated verification on every change
 ```
 
@@ -317,14 +308,12 @@ Before repeating the pipeline, run `99_reset_demo`: without that step, a second 
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
 - **Tracking of already loaded files is manual** (moving from `landing/` to `processed/`), and Bronze infers the schema. In production: Auto Loader or `COPY INTO`, with a declared schema.
-- **If a batch brings the same order with two different quantities, the `MERGE` fails** on multiple matches: there is no "last one wins" rule. Deduplication does not choose which row survives either.
-- **The 12 products with an invalid identifier share `product_id = 999999`.** Today they have no price and no orders; if an order arrived with that identifier, the join on `product_id` would multiply it by 12.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
 - **The job does not fail if a figure is wrong:** it extracts the figures and the comparison runs outside. The automated check on GitHub covers reproducibility and the latest stored output; it does not run the pipeline.
-- **Quality rules live in the code**, not declared as expectations the pipeline evaluates and reports. The automated workflow checks that data and figures are reproducible, but it does not deploy or run the pipeline on Databricks.
-- **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` with no measurable effect below 5,000 rows, Change Data Feed enabled with no consumer, calendar fixed to 2026 and the catalog name written out in the SQL cells.
 
 Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.
+
+The full list is in [`docs/DESIGN.md`](docs/DESIGN.md#limitations-and-next-steps).
 
 ## Origin and authorship
 

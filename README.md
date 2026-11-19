@@ -4,6 +4,8 @@
 
 🇪🇸 **Español** · 🇺🇸 [English](README.en.md)
 
+La insignia `CI` comprueba que los datos y las cifras son reproducibles y que la evidencia guardada corresponde al código actual. No ejecuta el pipeline en Databricks.
+
 > Adaptación a Azure y Unity Catalog del proyecto público [databricks-medallion-lakehouse-fmcg](https://github.com/takadlag/databricks-medallion-lakehouse-fmcg) (AWS). Qué viene del original y qué aporta esta versión: [Origen y autoría](#origen-y-autoría).
 
 Un pipeline de datos de punta a punta para una distribuidora de alimentos de consumo masivo (FMCG): recibe archivos CSV con errores reales de captura, los limpia con reglas de negocio explícitas, los modela en estrella y los publica en un dashboard. Cada lote nuevo de órdenes se integra con `MERGE` sin duplicar ventas, y todas las cifras se comprueban contra un cálculo independiente.
@@ -12,7 +14,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 |---|---|
 | **Resultado** | 13 tablas Delta en tres capas (más dos de paso para el lote nuevo) · 4.786 líneas de venta · US$ 684.393,99 de revenue · 50 de 50 cifras verificadas |
 | **Stack** | Azure Databricks · Unity Catalog · Delta Lake · PySpark · Spark SQL · Lakeflow Jobs · AI/BI Dashboards · ADLS Gen2 |
-| **Tiempo de ejecución** | Unos 4 minutos de principio a fin con el job en un cluster de un solo nodo de 4 núcleos ([3 min 51 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
+| **Tiempo de ejecución** | Unos 4 minutos de principio a fin con el job en un cluster de un solo nodo de 4 núcleos ya encendido ([3 min 51 s en la última ejecución](qa/evidencia/ejecucion_job.json)) |
 | **Datos** | Sintéticos y reproducibles: 5 archivos CSV, 5.954 filas, generados con semilla fija |
 
 ![Dashboard «FMCG · Ventas (Gold)»](docs/img/dashboard.png)
@@ -43,7 +45,7 @@ Una distribuidora recibe cada mes cuatro archivos de sus sistemas: clientes, pro
 
 Estas son las cifras de los archivos tal como llegan. Más abajo, [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) muestra cuántas filas afecta cada regla: no siempre coinciden, porque una misma fila puede tener dos problemas y solo cuenta en la primera regla que la alcanza.
 
-Las ciudades (Bengaluru, Hyderabad, Nueva Delhi) y las categorías de producto vienen del proyecto original, que es de la India.
+Las ciudades (Bengaluru, Hyderabad, New Delhi) y las categorías de producto vienen del proyecto original, que es de la India.
 
 El negocio pregunta cuánto se vendió, de qué categoría y cómo evoluciona mes a mes. Para responder con cifras confiables hay que decidir qué hacer con cada dato malo, y poder demostrar que el resultado es correcto.
 
@@ -153,7 +155,7 @@ Unity Catalog registra el linaje sin que nadie lo documente: de qué tablas y no
 
 ## El pipeline, capa por capa
 
-Catorce notebooks numerados en orden de ejecución: `00` prepara el catálogo, `01` carga Bronze, `02` a `05` limpian en Silver, `06` a `08` construyen Gold y `09` optimiza. Están en [`notebooks/`](notebooks/).
+Catorce notebooks; los numerados van en orden de ejecución: `00` prepara el catálogo, `01` carga Bronze, `02` a `05` limpian en Silver, `06` a `08` construyen Gold y `09` optimiza. Están en [`notebooks/`](notebooks/).
 
 <details>
 <summary>Ver qué hace cada notebook y cuántas filas entran y salen</summary>
@@ -175,15 +177,13 @@ Catorce notebooks numerados en orden de ejecución: `00` prepara el catálogo, `
 
 </details>
 
-Cada celda de código lleva un comentario que dice qué hace, y las líneas clave tienen una explicación al final.
+Las celdas de código llevan un comentario que dice qué hacen, y las líneas clave tienen una explicación al final.
 
 Al terminar, el catálogo queda así (las dos `staging_orders` son las tablas de paso del lote nuevo):
 
 ![Catálogo fmcg con los esquemas bronze, silver y gold](docs/img/ui-catalogo.png)
 
 ### Qué pasa con cada dato malo
-
-La política no es la misma para todos los casos, y cada diferencia tiene un motivo:
 
 | Caso | Filas | Qué se hace | Por qué |
 |---|---:|---|---|
@@ -192,7 +192,7 @@ La política no es la misma para todos los casos, y cada diferencia tiene un mot
 | Orden con cliente inválido | 230 | Se conserva, con cliente `999999` | La venta ocurrió; solo falta saber de quién. La cifra es de la tabla final, con el lote nuevo incluido; el archivo inicial trae 256 y parte de esas filas sale por otra regla |
 | Orden con producto inexistente | 198 | Se descarta | Sin producto no hay precio para calcular el revenue |
 | Producto con identificador no numérico | 12 | Se conserva, con `product_id` `999999` | El producto existe y se identifica por `product_code`. Los 12 comparten ese `product_id`, así que no tienen precio ni órdenes |
-| Cliente sin ciudad válida | 19 | 4 reciben la ciudad que confirmó negocio y 15 quedan como «Sin ciudad» | No se inventa un dato que nadie confirmó |
+| Cliente sin ciudad válida | 19 | 4 reciben una ciudad confirmada (supuesto del caso) y 15 quedan como «Sin ciudad» | No se inventa un dato que nadie confirmó |
 
 Las cifras de órdenes sin cantidad, repetidas y con producto inexistente corresponden a la carga inicial y salen de los conteos que imprime el notebook `05`; el cálculo independiente comprueba el resultado de la cadena (4.511), no cada paso intermedio. Las filas descartadas se cuentan en cada paso del notebook, pero no se guardan en una tabla de cuarentena.
 
@@ -219,7 +219,7 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 
 - **La cantidad queda fuera de la llave a propósito.** Las 20 correcciones del lote cambian la cantidad de una orden existente: con la cantidad en la llave serían 20 ventas nuevas, no 20 actualizaciones.
 - **La condición con `<=>`** compara tratando a `NULL` como un valor más, así que solo se reescriben las filas que de verdad cambiaron.
-- **Alcance de la garantía.** Silver y Gold son idempotentes por el `MERGE`; la condición de cambio solo está en Gold, y el de Silver reescribe todo lo que coincide aunque el resultado sea el mismo.
+- **Alcance de la garantía.** Gold lo prueba en el propio notebook, que falla si la segunda ejecución no da 0 y 0. Silver es idempotente por diseño, sin una prueba propia; la condición de cambio solo está en Gold, y el de Silver reescribe todo lo que coincide aunque el resultado sea el mismo.
 - **Bronze no tiene esa garantía.** En Bronze, la carga inicial reemplaza la tabla y el lote nuevo se agrega al histórico (`append`); para no repetir un archivo, se mueve de `landing/` a `processed/`. Si el job falla entre la escritura y el movimiento, ese archivo quedaría dos veces en el histórico de Bronze. No llega a Silver, porque el lote nuevo se lee de una tabla de paso que se reemplaza en cada carga, pero el control de archivos es manual; Auto Loader lo resolvería.
 
 | El `MERGE` ejecutado | Segunda ejecución e historial de la tabla |
@@ -238,7 +238,7 @@ Cada escritura crea una versión de la tabla, y se puede volver a consultar mien
 
 Resultado: 50 de 50. La salida real de la última ejecución del job y su comparación están guardadas en [`qa/evidencia/`](qa/evidencia/). El mismo resultado se obtuvo en pruebas manuales con cómputo serverless y con el orquestador `run_all`; de esas no hay registro en el repositorio.
 
-Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos, recalcula las cifras esperadas, compara la salida guardada de la última ejecución y comprueba que los comentarios de los notebooks no alteran el código.
+Un flujo de GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) repite en cada cambio lo que no necesita Databricks: regenera los datos y comprueba que salen idénticos, recalcula las cifras esperadas y las compara con las publicadas, compara la salida guardada de la última ejecución, y comprueba que esa evidencia corresponde a los notebooks actuales y que sus comentarios no alteran el código Python.
 
 El cálculo independiente comparte las reglas de negocio pero no el motor. Detecta errores de implementación; no detecta una regla mal elegida.
 
@@ -264,19 +264,10 @@ La definición está en [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medallio
 |---|---|---|
 | Volume de Unity Catalog para la llegada de archivos | Montar un bucket o un contenedor con credenciales | El acceso lo gobierna el catálogo y los notebooks no llevan secretos |
 | Marcar clientes inválidos como `999999` y conservar la venta | Descartar la orden | La venta ocurrió; perderla distorsiona el revenue. El miembro «desconocido» la mantiene visible |
-| Descartar órdenes cuyo producto no existe en el maestro | Conservarlas sin precio | Sin producto no hay precio ni revenue que calcular |
-| Un solo precio por producto y mes, el más alto | Dejar ambos | Con dos precios, el cruce con las órdenes duplicaría ventas |
 | `MERGE` con llave de cuatro columnas y condición de cambio | Agregar filas (`append`) o reemplazar todo | Reintentar no duplica, y solo se reescribe lo que cambió |
-| Tabla de hechos sin particionar, con `OPTIMIZE ZORDER` | Particionar por fecha | Con este volumen, particionar crea un archivo diminuto por cada fecha, más de 150 |
-| Dimensiones reconstruidas completas en cada ejecución | `MERGE` también en dimensiones | Son pequeñas y no se necesita su historial en este caso |
-| Calendario generado para todo el año | Solo fechas con ventas | Los lotes futuros siempre encuentran su fecha |
 | Verificación con un cálculo independiente | Confiar en que el notebook corrió sin error | Que corra no prueba que el número sea correcto |
 
-### Lo que no salió a la primera
-
-- **Tareas «en ejecución» durante horas sin escribir nada.** La primera hipótesis fue falta de capacidad en la región. La causa real: el cluster se creó con 0 workers y sin el modo de nodo único, así que arrancaba sin nada que ejecutara el trabajo. Se encontró leyendo la configuración del cluster, no reintentando.
-- **Riesgo de ventas duplicadas.** Había 24 combinaciones producto-mes con dos precios. Se detectó revisando los datos antes de hacer el cruce.
-- **La prueba de idempotencia no se podía repetir.** El notebook borraba la tabla intermedia al terminar. Apareció al ejecutar la demostración completa dos veces.
+La tabla completa de decisiones, lo que no salió a la primera y todas las limitaciones están en [`docs/DISENO.md`](docs/DISENO.md).
 
 ## Cómo ejecutarlo
 
@@ -306,8 +297,8 @@ Antes de repetir el pipeline hay que ejecutar `99_reset_demo`: sin ese paso, una
 ├── qa/            oraculo.py (cálculo independiente), esperado.json (cifras esperadas), comparar.py y evidencia/ de la última ejecución
 ├── jobs/          definición del job de 16 tareas
 ├── dashboard/     definición del dashboard de ventas
-├── tools/         comentar_notebooks.py
-├── docs/          guía de ejecución detallada y capturas del README
+├── tools/         utilidad para quitar o poner los comentarios de los notebooks
+├── docs/          guía de ejecución, decisiones de diseño y limitaciones, y capturas del README
 └── .github/       verificación automática en cada cambio
 ```
 
@@ -315,14 +306,12 @@ Antes de repetir el pipeline hay que ejecutar `99_reset_demo`: sin ese paso, una
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
 - **El control de archivos ya cargados es manual** (mover de `landing/` a `processed/`), y Bronze infiere el esquema. En producción: Auto Loader o `COPY INTO`, con esquema declarado.
-- **Si un lote trae la misma orden con dos cantidades distintas, el `MERGE` falla** por coincidencia múltiple: no hay una regla de «gana la última». Al quitar duplicados tampoco se elige qué fila sobrevive.
-- **Los 12 productos con identificador inválido comparten `product_id = 999999`.** Hoy no tienen precio ni órdenes; si llegara una orden con ese identificador, el cruce por `product_id` la multiplicaría por 12.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **El job no falla si una cifra sale mal:** extrae las cifras y la comparación corre fuera. La verificación automática de GitHub revisa la reproducibilidad y la última salida guardada, no ejecuta el pipeline.
-- **Las reglas de calidad están en el código**, no declaradas como expectativas que el pipeline evalúe y reporte. El flujo automático comprueba la reproducibilidad de datos y cifras, pero no despliega ni ejecuta el pipeline en Databricks.
-- **Otras:** llaves naturales sin llaves sustitutas, importes en `DOUBLE` y no en `DECIMAL`, `ZORDER` sin efecto medible con menos de 5.000 filas, Change Data Feed activado sin consumidor, calendario fijo en 2026 y nombre del catálogo escrito en las celdas SQL.
 
 Siguientes pasos: ingesta con Auto Loader, expectativas de calidad con Lakeflow Declarative Pipelines, despliegue con Databricks Asset Bundles y GitHub Actions, y SCD tipo 2 en clientes.
+
+La lista completa está en [`docs/DISENO.md`](docs/DISENO.md#limitaciones-y-siguientes-pasos).
 
 ## Origen y autoría
 

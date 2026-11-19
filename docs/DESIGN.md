@@ -1,0 +1,39 @@
+# Design decisions and limitations
+
+[← Back to the README](../README.en.md)
+
+## Design decisions
+
+| Decision | Discarded alternative | Why |
+|---|---|---|
+| Unity Catalog Volume for file landing | Mounting a bucket or container with credentials | Access is governed by the catalog and the notebooks carry no secrets |
+| Flag invalid customers as `999999` and keep the sale | Drop the order | The sale happened; losing it distorts revenue. The "unknown" member keeps it visible |
+| Drop orders whose product is not in the master | Keep them without a price | Without a product there is no price and no revenue to compute |
+| A single price per product and month, the highest | Keep both | With two prices, the join with orders would duplicate sales |
+| `MERGE` with a four-column key and a change condition | Append rows or overwrite everything | A retry does not duplicate, and only what changed is rewritten |
+| Unpartitioned fact table with `OPTIMIZE ZORDER` | Partition by date | At this volume, partitioning creates one tiny file per date, more than 150 |
+| Dimensions rebuilt in full on every run | `MERGE` on dimensions too | They are small and their history is not needed in this case |
+| Calendar generated for the whole year | Only dates with sales | Future batches always find their date |
+| Verification against an independent calculation | Trusting that the notebook ran without errors | Running does not prove the number is correct |
+
+### What did not work the first time
+
+- **Tasks "running" for hours without writing anything.** The first hypothesis was a capacity shortage in the region. The real cause: the cluster was created with 0 workers and without single-node mode, so it started with nothing to execute the work. It was found by reading the cluster configuration, not by retrying.
+- **Risk of duplicated sales.** There were 24 product-month pairs with two prices. It was detected by inspecting the data before doing the join.
+- **The idempotency proof could not be repeated.** The notebook dropped the intermediate table when it finished. It surfaced when running the full demonstration twice.
+
+## Limitations and next steps
+
+- **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
+- **Tracking of already loaded files is manual** (moving from `landing/` to `processed/`), and Bronze infers the schema. In production: Auto Loader or `COPY INTO`, with a declared schema.
+- **If a batch brings the same order with two different quantities, the `MERGE` fails** on multiple matches: there is no "last one wins" rule. Deduplication does not choose which row survives either.
+- **The 12 products with an invalid identifier share `product_id = 999999`.** Today they have no price and no orders; if an order arrived with that identifier, the join on `product_id` would multiply it by 12.
+- **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
+- **The job does not fail if a figure is wrong:** it extracts the figures and the comparison runs outside. The automated check on GitHub covers reproducibility and the latest stored output; it does not run the pipeline.
+- **Quality rules live in the code**, not declared as expectations the pipeline evaluates and reports. The automated workflow checks that data and figures are reproducible, but it does not deploy or run the pipeline on Databricks.
+- **The price list only covers January to June 2026.** A later order would end up with a null price and revenue; validation counts them, but there is no rule for that case.
+- **The job is a linear chain**, although the four Bronze loads are independent and could run in parallel.
+- **The rules "confirmed by the business"** (the four cities and the highest price) are assumptions of the case: the data is synthetic.
+- **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` applied without measuring its effect (below 5,000 rows no difference is expected), Change Data Feed enabled with no consumer, calendar fixed to 2026 and the catalog name written out in the SQL cells.
+
+Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.

@@ -4,6 +4,8 @@
 
 ## Step-by-step run, notebook by notebook
 
+First follow steps 1 to 3 of the [README](../README.en.md#how-to-run-it): import the notebooks, run `00_setup_catalog` and upload the CSV files. `run_all` does everything below in a single run; this guide is for going notebook by notebook.
+
 The Volume paths must end up like this:
 
 ```
@@ -24,6 +26,8 @@ Run order:
 6. `05_silver_orders` with `load_mode = incremental`
 7. `08_gold_fact_incremental`, `09_optimize_and_kpis`
 
+When it finishes, run `98_validacion` and compare its output with `python3 qa/comparar.py` (see [Verification](../README.en.md#verification)).
+
 Parameters are chosen in the dropdowns at the top of each notebook (`data_source` and `load_mode`).
 
 To start over, `99_reset_demo` drops the tables and returns the CSV files to `landing/`. Always run it before repeating the pipeline: with no files in `landing/`, Bronze finishes without loading anything, and the query on version 0 of `fact_sales` assumes that version is the initial load.
@@ -31,7 +35,7 @@ To start over, `99_reset_demo` drops the tables and returns the CSV files to `la
 ## Compute, job, dashboard and notebook comments
 
 - **Compute:** serverless or a single-node cluster. If you create the cluster by hand, choose "Single node": a cluster with 0 workers without that mode starts with no executors and the notebooks hang.
-- **Job:** it is defined for an existing cluster. In `jobs/fmcg-medallion-pipeline.json`, replace `<CARPETA_DEL_PROYECTO>` (project folder) and `<ID_DE_TU_CLUSTER>` (your cluster id) and create it with `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
+- **Job:** it is defined for an existing cluster. In `jobs/fmcg-medallion-pipeline.json`, replace `<CARPETA_DEL_PROYECTO>` (project folder) (for example `/Users/<your_user>/fmcg-medallion`) and `<ID_DE_TU_CLUSTER>` (your cluster id) and create it with `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
 - **Dashboard:** import `dashboard/fmcg-ventas-gold.lvdash.json` from Workspace → Import and assign it a SQL warehouse.
 - **Comments:** `python3 tools/comentar_notebooks.py --quitar` removes the guiding comments from the notebooks without touching the code; without the argument, it puts them back.
 - **Data:** `python3 data/gen_data.py` regenerates the same CSV files (fixed seed).

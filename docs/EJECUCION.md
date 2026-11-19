@@ -4,6 +4,8 @@
 
 ## Ejecución paso a paso, notebook por notebook
 
+Sigue primero los pasos 1 a 3 del [README](../README.md#cómo-ejecutarlo): importar los notebooks, ejecutar `00_setup_catalog` y subir los CSV. `run_all` hace en una sola ejecución todo lo que sigue; esta guía es para ir notebook por notebook.
+
 Las rutas del Volume deben quedar así:
 
 ```
@@ -24,6 +26,8 @@ Orden de ejecución:
 6. `05_silver_orders` con `load_mode = incremental`
 7. `08_gold_fact_incremental`, `09_optimize_and_kpis`
 
+Al terminar, ejecuta `98_validacion` y compara su salida con `python3 qa/comparar.py` (ver [Verificación](../README.md#verificación)).
+
 Los parámetros se eligen en los desplegables de la parte superior de cada notebook (`data_source` y `load_mode`).
 
 Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. Ejecútalo siempre antes de repetir el pipeline: sin archivos en `landing/`, Bronze termina sin cargar nada, y la consulta de la versión 0 de `fact_sales` supone que esa versión es la carga inicial.
@@ -31,7 +35,7 @@ Para empezar de nuevo, `99_reset_demo` borra las tablas y devuelve los CSV a `la
 ## Cómputo, job, dashboard y comentarios de los notebooks
 
 - **Cómputo:** serverless o un cluster de un solo nodo. Si creas el cluster a mano, elige «Nodo único»: un cluster con 0 workers sin ese modo arranca sin ejecutores y los notebooks se quedan colgados.
-- **Job:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
+- **Job:** está definido para un cluster existente. En `jobs/fmcg-medallion-pipeline.json`, reemplaza `<CARPETA_DEL_PROYECTO>` (por ejemplo `/Users/<tu_usuario>/fmcg-medallion`) y `<ID_DE_TU_CLUSTER>` y créalo con `databricks jobs create --json @jobs/fmcg-medallion-pipeline.json`.
 - **Dashboard:** importa `dashboard/fmcg-ventas-gold.lvdash.json` desde Workspace → Importar y asígnale un SQL warehouse.
 - **Comentarios:** `python3 tools/comentar_notebooks.py --quitar` elimina los comentarios orientativos de los notebooks sin tocar el código; sin el argumento, los vuelve a poner.
 - **Datos:** `python3 data/gen_data.py` regenera los mismos CSV (semilla fija).

@@ -26,3 +26,14 @@ jobs:
           python3 tools/comentar_notebooks.py --quitar
           python3 tools/comentar_notebooks.py
           git diff --exit-code notebooks/
+      - name: La evidencia guardada corresponde a los notebooks actuales
+        run: |
+          python3 - <<'PY'
+          import glob, hashlib, json, sys
+          esperado = json.load(open("qa/evidencia/ejecucion_job.json"))["sha256_notebooks"]
+          actual = {f.split("/")[-1]: hashlib.sha256(open(f, "rb").read()).hexdigest()[:16] for f in glob.glob("notebooks/*.py")}
+          distintos = sorted(k for k in set(esperado) | set(actual) if esperado.get(k) != actual.get(k))
+          if distintos:
+              sys.exit(f"Notebooks cambiados desde la última ejecución registrada: {distintos}. Vuelve a ejecutar el pipeline y actualiza qa/evidencia/.")
+          print("evidencia al día:", len(actual), "notebooks")
+          PY
