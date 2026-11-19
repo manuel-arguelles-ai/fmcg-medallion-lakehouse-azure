@@ -25,12 +25,12 @@
 ## Limitaciones y siguientes pasos
 
 - **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
-- **El control de archivos ya cargados es por nombre:** supone que el mismo nombre es el mismo contenido. No es Auto Loader, que además maneja evolución de esquema y volúmenes grandes.
+- **Auto Loader corre por lotes** (`availableNow`), no como proceso continuo, y los archivos se quedan en `landing/` sin archivarse. Si se borran las tablas sin borrar los *checkpoints*, no vuelve a cargar nada: por eso el reset borra ambos.
 - **Si la misma orden llega dos veces en un mismo archivo con cantidades distintas**, gana la de mayor cantidad: entre archivos gana la leída al final, pero dentro de un archivo no hay un orden de llegada. En clientes y productos, al quitar duplicados no se elige qué fila sobrevive.
 - **Los 12 productos con identificador inválido comparten `product_id = 999999`.** Hoy no tienen precio ni órdenes; si llegara una orden con ese identificador, el cruce por `product_id` la multiplicaría por 12.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
 - **La validación compara contra cifras fijas** porque los datos son fijos. Con datos reales harían falta reglas relativas (rangos, variaciones entre cargas), no igualdades.
-- **El despliegue no está automatizado:** el bundle (`databricks.yml`) está validado contra un workspace, pero no se desplegó ni se ejecuta desde GitHub; eso requiere un service principal y sus secretos.
+- **El despliegue desde GitHub está definido, no ejecutado:** el job se desplegó con el bundle desde una máquina local y así se probó. El flujo [`deploy.yml`](../.github/workflows/deploy.yml) hace lo mismo desde GitHub, pero necesita los secretos de un service principal; sin ellos se omite.
 - **Las reglas de calidad están declaradas en el notebook** (un diccionario de reglas y restricciones `CHECK` en las tablas), no en un marco como Lakeflow Declarative Pipelines, que además llevaría el historial de cumplimiento. Solo las órdenes tienen cuarentena.
 - **La lista de precios solo cubre de enero a junio de 2026.** Una orden posterior quedaría con precio y revenue nulos; la validación los cuenta, pero no hay una regla para ese caso.
 - **El job es una cadena lineal**, aunque las cuatro cargas de Bronze son independientes y podrían correr en paralelo.

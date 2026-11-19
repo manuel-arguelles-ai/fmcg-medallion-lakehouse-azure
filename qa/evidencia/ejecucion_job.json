@@ -1,83 +1,81 @@
 {
  "estado": "SUCCESS",
- "duracion_s": 245,
- "duracion": "4 min 5 s",
- "fecha_utc": "2026-11-19 06:42",
+ "duracion_s": 322,
+ "duracion": "5 min 22 s",
+ "fecha_utc": "2026-11-19 11:47",
  "computo": {
-  "runtime": "16.4.x-scala2.13",
-  "tipo_de_nodo": "Standard_D4ds_v7",
-  "workers": 0,
-  "modo": "nodo único"
+  "tipo": "serverless",
+  "despliegue": "Databricks Asset Bundle (databricks.yml), target dev"
  },
  "tareas": {
-  "t01_orders": {
-   "estado": "SUCCESS",
-   "segundos": 19
-  },
-  "t05_orders": {
-   "estado": "SUCCESS",
-   "segundos": 17
-  },
-  "t08_fact_incr": {
-   "estado": "SUCCESS",
-   "segundos": 17
-  },
-  "t01_customers": {
-   "estado": "SUCCESS",
-   "segundos": 11
-  },
-  "t02_customers": {
-   "estado": "SUCCESS",
-   "segundos": 14
-  },
   "t01_orders_incr": {
    "estado": "SUCCESS",
-   "segundos": 14
-  },
-  "t00_setup": {
-   "estado": "SUCCESS",
-   "segundos": 10
-  },
-  "t98_validacion": {
-   "estado": "SUCCESS",
-   "segundos": 20
+   "segundos": 16
   },
   "t01_pricing": {
    "estado": "SUCCESS",
-   "segundos": 12
-  },
-  "t05_orders_incr": {
-   "estado": "SUCCESS",
-   "segundos": 26
-  },
-  "t06_dims": {
-   "estado": "SUCCESS",
-   "segundos": 17
-  },
-  "t03_products": {
-   "estado": "SUCCESS",
-   "segundos": 12
-  },
-  "t09_optimize": {
-   "estado": "SUCCESS",
-   "segundos": 19
-  },
-  "t04_pricing": {
-   "estado": "SUCCESS",
-   "segundos": 11
+   "segundos": 16
   },
   "t07_fact_full": {
    "estado": "SUCCESS",
-   "segundos": 12
+   "segundos": 13
+  },
+  "t05_orders_incr": {
+   "estado": "SUCCESS",
+   "segundos": 30
+  },
+  "t01_customers": {
+   "estado": "SUCCESS",
+   "segundos": 36
+  },
+  "t04_pricing": {
+   "estado": "SUCCESS",
+   "segundos": 13
+  },
+  "t03_products": {
+   "estado": "SUCCESS",
+   "segundos": 15
   },
   "t01_products": {
    "estado": "SUCCESS",
-   "segundos": 12
+   "segundos": 18
+  },
+  "t00_setup": {
+   "estado": "SUCCESS",
+   "segundos": 22
+  },
+  "t98_validacion": {
+   "estado": "SUCCESS",
+   "segundos": 24
+  },
+  "t08_fact_incr": {
+   "estado": "SUCCESS",
+   "segundos": 23
+  },
+  "t05_orders": {
+   "estado": "SUCCESS",
+   "segundos": 22
+  },
+  "t02_customers": {
+   "estado": "SUCCESS",
+   "segundos": 18
+  },
+  "t06_dims": {
+   "estado": "SUCCESS",
+   "segundos": 19
+  },
+  "t01_orders": {
+   "estado": "SUCCESS",
+   "segundos": 16
+  },
+  "t09_optimize": {
+   "estado": "SUCCESS",
+   "segundos": 15
   }
  },
  "sha256_notebooks": {
   "00_setup_catalog.py": "c1645711f062b7ce",
-  "01_bronze_load.py": "7e773592fc7c810b",
+  "01_bronze_load.py": "132a688bda4573dd",
   "02_silver_customers.py": "13d242cb1d31eac5",
   "03_silver_products.py": "4d8ffa136d851ff1",
   "04_silver_pricing.py": "b320e43a5099cc6d",
@@ -87,16 +85,15 @@
   "08_gold_fact_incremental.py": "e70e126861ac1676",
   "09_optimize_and_kpis.py": "13bb5a789bf055cb",
   "98_validacion.py": "97466b37bb848084",
-  "99_reset_demo.py": "3edb71adb3189ff0",
+  "99_reset_demo.py": "d9c988cfe26070bf",
   "esperado.py": "83a03e76b4c67570",
   "run_all.py": "158a117928bbd04d",
   "utilities.py": "38e651bff2251833"
  },
  "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella.",
  "pruebas_adicionales": {
-  "re_ejecucion_sin_reset": "SUCCESS, 60 de 60",
-  "archivo_ya_cargado_devuelto_a_landing": "SUCCESS, 60 de 60, no se cargó dos veces",
-  "orden_inesperada_en_un_archivo_nuevo": "FAILED en t98_validacion, 11 cifras señaladas",
-  "orquestador_run_all_dos_veces_seguidas": "SUCCESS las dos, 60 de 60"
+  "serverless_segunda_ejecucion_sin_reset": "SUCCESS, 298 s, validación dentro del job",
+  "cluster_de_un_nodo_orquestador_run_all_sin_reset": "SUCCESS, 507 s, validación incluida",
+  "version_anterior_de_la_ingesta_control_por_nombre": "en cluster: desde cero, sin reset, archivo ya cargado devuelto a landing (no se repitió) y orden inesperada (job en rojo, 11 cifras señaladas)"
  }
 }

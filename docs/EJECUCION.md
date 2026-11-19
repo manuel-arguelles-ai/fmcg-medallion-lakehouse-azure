@@ -30,7 +30,7 @@ Al terminar, ejecuta `98_validacion`: compara las cifras y falla si alguna no co
 
 Los parámetros se eligen en los desplegables de la parte superior de cada notebook (`data_source` y `load_mode`).
 
-Para empezar desde cero, `99_reset_demo` borra las tablas y devuelve los CSV a `landing/`. No hace falta para repetir el pipeline: sin archivos nuevos, Bronze no carga nada y el resto deja las mismas cifras.
+Para empezar desde cero, `99_reset_demo` borra las tablas y la memoria de Auto Loader. No hace falta para repetir el pipeline: sin archivos nuevos, Bronze no carga nada y el resto deja las mismas cifras.
 
 ## Cómputo, job, dashboard y comentarios de los notebooks
 

@@ -5,15 +5,16 @@
 bundle:
   name: fmcg-medallion-lakehouse
 
-variables:
-  cluster_id:
-    description: Id de un cluster de un solo nodo ya creado. Para usar serverless, quita existing_cluster_id de las tareas.
-    default: ""
+# Las tareas no declaran cómputo: corren en serverless.
 
 targets:
   dev:
     mode: development
     default: true
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
 
 resources:
   jobs:
@@ -22,13 +23,11 @@ resources:
       max_concurrent_runs: 1
       tasks:
         - task_key: t00_setup
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/00_setup_catalog.py
         - task_key: t01_customers
           depends_on:
             - task_key: t00_setup
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/01_bronze_load.py
             base_parameters:
@@ -37,7 +36,6 @@ resources:
         - task_key: t01_products
           depends_on:
             - task_key: t01_customers
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/01_bronze_load.py
             base_parameters:
@@ -46,7 +44,6 @@ resources:
         - task_key: t01_pricing
           depends_on:
             - task_key: t01_products
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/01_bronze_load.py
             base_parameters:
@@ -55,7 +52,6 @@ resources:
         - task_key: t01_orders
           depends_on:
             - task_key: t01_pricing
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/01_bronze_load.py
             base_parameters:
@@ -64,25 +60,21 @@ resources:
         - task_key: t02_customers
           depends_on:
             - task_key: t01_orders
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/02_silver_customers.py
         - task_key: t03_products
           depends_on:
             - task_key: t02_customers
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/03_silver_products.py
         - task_key: t04_pricing
           depends_on:
             - task_key: t03_products
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/04_silver_pricing.py
         - task_key: t05_orders
           depends_on:
             - task_key: t04_pricing
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/05_silver_orders.py
             base_parameters:
@@ -90,19 +82,16 @@ resources:
         - task_key: t06_dims
           depends_on:
             - task_key: t05_orders
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/06_gold_dims.py
         - task_key: t07_fact_full
           depends_on:
             - task_key: t06_dims
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/07_gold_fact_full_load.py
         - task_key: t01_orders_incr
           depends_on:
             - task_key: t07_fact_full
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/01_bronze_load.py
             base_parameters:
@@ -111,7 +100,6 @@ resources:
         - task_key: t05_orders_incr
           depends_on:
             - task_key: t01_orders_incr
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/05_silver_orders.py
             base_parameters:
@@ -119,18 +107,15 @@ resources:
         - task_key: t08_fact_incr
           depends_on:
             - task_key: t05_orders_incr
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/08_gold_fact_incremental.py
         - task_key: t09_optimize
           depends_on:
             - task_key: t08_fact_incr
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/09_optimize_and_kpis.py
         - task_key: t98_validacion
           depends_on:
             - task_key: t09_optimize
-          existing_cluster_id: ${var.cluster_id}
           notebook_task:
             notebook_path: ./notebooks/98_validacion.py

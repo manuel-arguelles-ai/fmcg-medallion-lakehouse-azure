@@ -13,18 +13,18 @@
  "gold.dim_pricing": 288,
  "gold.fact_sales": 4786,
  "cities": {
-  "Sin ciudad": 15,
-  "Bengaluru": 48,
   "New Delhi": 51,
-  "Hyderabad": 70
+  "Hyderabad": 70,
+  "Bengaluru": 48,
+  "Sin ciudad": 15
  },
  "categories": {
-  "Recovery Dairy": 12,
+  "Granola & Cereals": 9,
+  "Electrolyte Mix": 8,
+  "Protein Bars": 11,
   "Energy Bars": 9,
   "Healthy Snacks": 11,
-  "Electrolyte Mix": 8,
-  "Granola & Cereals": 9,
-  "Protein Bars": 11
+  "Recovery Dairy": 12
  },
  "products_999999": 12,
  "orders_cust_999999": 230,
@@ -78,20 +78,20 @@
   }
  ],
  "by_category": {
-  "Recovery Dairy": 168404.36,
-  "Energy Bars": 99029.07,
+  "Protein Bars": 164356.64,
   "Healthy Snacks": 77905.63,
-  "Electrolyte Mix": 92450.01,
+  "Energy Bars": 99029.07,
+  "Recovery Dairy": 168404.36,
   "Granola & Cereals": 82248.28,
-  "Protein Bars": 164356.64
+  "Electrolyte Mix": 92450.01
  },
  "by_month": {
-  "2026-06": 35667.5,
-  "2026-02": 122936.29,
   "2026-03": 138641.13,
+  "2026-01": 130892.26,
+  "2026-02": 122936.29,
   "2026-05": 128821.44,
   "2026-04": 127435.37,
-  "2026-01": 130892.26
+  "2026-06": 35667.5
  },
  "fact_orphans": {
   "customer": 0,

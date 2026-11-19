@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC ## 99 · Reset de la demo
-# MAGIC Deja el proyecto como recién provisionado: borra las tablas de `bronze`, `silver` y `gold` y devuelve los CSV de `processed/` a `landing/`. Correr **antes** de cada ensayo o del taller en vivo.
+# MAGIC Deja el proyecto como recién provisionado: borra las tablas de `bronze`, `silver` y `gold` y la memoria de Auto Loader (los *checkpoints*), para que la siguiente ejecución vuelva a cargar todos los archivos. Solo hace falta para empezar desde cero.
 
 # COMMAND ----------
 
@@ -17,7 +17,15 @@ for schema in [bronze_schema, silver_schema, gold_schema]:
 
 # COMMAND ----------
 
-# QUÉ HACE: devuelve los CSV de processed/ a landing/ para poder cargar otra vez desde cero
+# QUÉ HACE: borra los checkpoints
+# la memoria de Auto Loader: sin ella, todos los archivos de landing/ vuelven a ser «nuevos»
+dbutils.fs.rm(f"{landing_root}/_checkpoints", True)  # True = borra la carpeta con todo su contenido
+print("checkpoints borrados")
+
+# COMMAND ----------
+
+# QUÉ HACE: si quedaron archivos en processed/, los devuelve a landing/
+# compatibilidad con la versión anterior, que movía los archivos cargados a processed/: se devuelven a landing/
 sources = [("initial", s) for s in ["customers", "products", "gross_price", "orders"]] + [("incremental", "orders")]  # las cinco carpetas de datos
 for mode, s in sources:
     processed = f"{landing_root}/{mode}/{s}/processed/"

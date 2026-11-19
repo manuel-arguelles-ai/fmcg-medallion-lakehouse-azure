@@ -30,7 +30,7 @@ When it finishes, run `98_validacion`: it compares the figures and fails if any 
 
 Parameters are chosen in the dropdowns at the top of each notebook (`data_source` and `load_mode`).
 
-To start from scratch, `99_reset_demo` drops the tables and returns the CSV files to `landing/`. It is not needed to repeat the pipeline: with no new files, Bronze loads nothing and the rest leaves the same figures.
+To start from scratch, `99_reset_demo` drops the tables and Auto Loader's memory. It is not needed to repeat the pipeline: with no new files, Bronze loads nothing and the rest leaves the same figures.
 
 ## Compute, job, dashboard and notebook comments
 

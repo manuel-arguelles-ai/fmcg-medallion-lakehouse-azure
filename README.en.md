@@ -13,8 +13,8 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 | | |
 |---|---|
 | **Result** | 13 Delta tables across three layers (plus two staging tables and one quarantine table) · 4,786 sales lines · US$ 684,393.99 in revenue · 60 of 60 checks inside the job |
-| **Stack** | Azure Databricks · Unity Catalog · Delta Lake · PySpark · Spark SQL · Lakeflow Jobs · AI/BI Dashboards · ADLS Gen2 |
-| **Run time** | About 4 minutes end to end with the job on a 4-core single-node cluster that is already running ([4 min 5 s in the latest run](qa/evidencia/ejecucion_job.json)) |
+| **Stack** | Azure Databricks · Unity Catalog · Delta Lake · Auto Loader · PySpark · Spark SQL · Lakeflow Jobs · Asset Bundles · AI/BI Dashboards · ADLS Gen2 |
+| **Run time** | About 5 minutes end to end on serverless ([5 min 22 s in the latest run](qa/evidencia/ejecucion_job.json)) |
 | **Data** | Synthetic and reproducible: 5 CSV files, 5,954 rows, generated with a fixed seed |
 
 ![Dashboard "FMCG · Ventas (Gold)"](docs/img/dashboard.png)
@@ -78,7 +78,7 @@ Files land in a Unity Catalog Volume, which on Azure is a Data Lake Storage Gen2
 
 ## Stack
 
-Azure Databricks with Unity Catalog, Delta Lake on ADLS Gen2, PySpark and Spark SQL, Lakeflow Jobs and AI/BI Dashboards.
+Azure Databricks with Unity Catalog, Delta Lake on ADLS Gen2, Auto Loader, PySpark and Spark SQL, Lakeflow Jobs deployed with Asset Bundles and AI/BI Dashboards.
 
 <details>
 <summary>See the technology of each layer and what it is for</summary>
@@ -89,6 +89,7 @@ Azure Databricks with Unity Catalog, Delta Lake on ADLS Gen2, PySpark and Spark 
 | Governance | Unity Catalog: catalog, schemas, Volume, lineage | Organization and traceability |
 | Storage | Delta Lake on ADLS Gen2 | Transactional tables with version history |
 | Transformation | PySpark and Spark SQL | Cleaning, business rules and modeling |
+| Ingestion | Auto Loader (`cloudFiles`) with a declared schema | Load each file exactly once |
 | Incremental load | Delta `MERGE` | Insert what is new, update what changed |
 | Optimization | `OPTIMIZE` + `ZORDER` | Compact files and speed up filters |
 | Orchestration | Lakeflow Jobs | 16 chained tasks with parameters |
@@ -165,7 +166,7 @@ Fourteen notebooks; the numbered ones go in run order: `00` prepares the catalog
 | Notebook | What it does | In → out |
 |---|---|---|
 | [`00_setup_catalog`](notebooks/00_setup_catalog.py) | Creates the catalog, the schemas and the Volume | — |
-| [`01_bronze_load`](notebooks/01_bronze_load.py) | A single parameterized notebook for the 4 sources and both load modes. Declared schema, source file and read timestamp on every row, and tracking by file name so the same file is not loaded twice | 196 · 66 · 312 · 5,050 |
+| [`01_bronze_load`](notebooks/01_bronze_load.py) | A single parameterized notebook for the 4 sources and both load modes. Ingestion with Auto Loader and a declared schema: it remembers which files it already loaded, and every row carries its source file and read timestamp | 196 · 66 · 312 · 5,050 |
 | [`02_silver_customers`](notebooks/02_silver_customers.py) | Removes duplicates, normalizes names, fixes cities with a dictionary and an allow-list | 196 → 184 |
 | [`03_silver_products`](notebooks/03_silver_products.py) | Normalizes category and name, derives the commercial division, generates a deterministic code per product (SHA-256 of the name) | 66 → 60 |
 | [`04_silver_pricing`](notebooks/04_silver_pricing.py) | Converts the month to a date and keeps a single price per product and month | 312 → 288 |
@@ -175,15 +176,15 @@ Fourteen notebooks; the numbered ones go in run order: `00` prepares the catalog
 | [`08_gold_fact_incremental`](notebooks/08_gold_fact_incremental.py) | Merges the new batch with `MERGE` and demonstrates idempotency | 4,511 → 4,786 |
 | [`09_optimize_and_kpis`](notebooks/09_optimize_and_kpis.py) | `OPTIMIZE ZORDER`, a query on an earlier version and the dashboard queries | — |
 | [`98_validacion`](notebooks/98_validacion.py) | Extracts the actual figures, compares them with the expected ones and fails if any differs | 60 checks |
-| [`99_reset_demo`](notebooks/99_reset_demo.py) | Drops the tables and returns the CSV files to `landing/` | — |
+| [`99_reset_demo`](notebooks/99_reset_demo.py) | Drops the tables and Auto Loader's memory, to start from scratch | — |
 
 </details>
 
 Code cells carry a comment saying what they do, and the key lines have a trailing explanation.
 
-When it finishes, the catalog looks like this (the two `staging_orders` are the staging tables of the new batch):
+When it finishes, the Silver schema looks like this: the four clean tables, the staging table of the new batch and the quarantine table.
 
-![Catalog fmcg with the bronze, silver and gold schemas](docs/img/ui-catalogo.png)
+![Silver schema with the orders_quarantine table](docs/img/ui-catalogo.png)
 
 ### What happens to each bad record
 
@@ -222,8 +223,8 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 - **Quantity is left out of the key on purpose.** The 20 corrections in the batch change the quantity of an existing order: with quantity in the key they would be 20 new sales, not 20 updates.
 - **The `<=>` condition** compares treating `NULL` as just another value, so only the rows that really changed are rewritten.
 - **Silver and Gold** use `MERGE` with a change condition: a row is only rewritten if its quantity (or its price) changed. Gold proves it in the notebook itself, which fails if the second run does not give 0 and 0; validation also checks that, in both layers, every `MERGE` after the first one changed nothing.
-- **Bronze** does not reload a file whose name is already in the table, even if it reappears in `landing/` because an earlier run failed before moving it.
-- **Tested, not just designed:** a second full run without a reset, and another one with an already loaded file put back in `landing/`, ended with the same 60 checks; with an unexpected order added, the job ended in red and pointed at the 11 affected figures.
+- **Bronze** uses Auto Loader: its checkpoint records every processed file and advances together with the write, so a file is loaded exactly once even if the run is interrupted and repeated.
+- **Tested, not just designed:** on serverless, a second full run without a reset ended green with the same 60 checks, and so did the `run_all` orchestrator on a cluster. With an unexpected order added in a new file, the job ended in red and pointed at the 11 affected figures (that test was done with the previous version of the ingestion).
 
 | The `MERGE`, executed | Second run and table history |
 |---|---|
@@ -239,7 +240,7 @@ Every write creates a version of the table, and it can be queried again for as l
 2. The `98_validacion` notebook extracts the actual figures from the tables and compares them, inside the job, with the expected ones. If a single one differs, it raises an error and the run ends in red.
 3. There are 60 checks: rows per table, customers per city, products per category, revenue per category and per month, `MERGE` history in Silver and in Gold, duplicate keys, sales without a dimension and quarantined rows per file and reason.
 
-Result: 60 of 60. The actual output of the latest job run and its comparison are stored in [`qa/evidencia/`](qa/evidencia/). The `run_all` orchestrator gave the same result, twice in a row. Everything was tested on a single-node cluster; this version has not been tested on serverless.
+Result: 60 of 60. The actual output of the latest job run (on serverless, deployed with the bundle) and its comparison are stored in [`qa/evidencia/`](qa/evidencia/), together with the record of the additional tests.
 
 A GitHub Actions workflow ([`ci.yml`](.github/workflows/ci.yml)) repeats on every change what does not need Databricks: it regenerates the data and checks it comes out identical, recomputes the expected figures and compares them with the published ones, checks that the validation notebook uses those same figures, compares the stored output of the latest run, and checks that this evidence matches the current notebooks and that their comments do not alter the Python code.
 
@@ -274,7 +275,7 @@ The full decision table, what did not work the first time and all the limitation
 
 ## How to run it
 
-You need a Databricks workspace with Unity Catalog and permission to create a catalog named `fmcg`. Tested on Azure Databricks Premium (created with the Azure free trial), on DBR 16.4 LTS with a single-node cluster.
+You need a Databricks workspace with Unity Catalog and permission to create a catalog named `fmcg`. Tested on Azure Databricks Premium (created with the Azure free trial), on serverless and on a single-node cluster with DBR 16.4 LTS.
 
 1. **Import** the `notebooks/` folder into your workspace. On import, Databricks drops the `.py` extension from the name.
    ```bash
@@ -308,9 +309,9 @@ The pipeline can be run again with no preparation: a second full run leaves the 
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Tracking of already loaded files is by name:** it assumes the same name means the same content. It is not Auto Loader, which also handles schema evolution and large volumes.
+- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
-- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities. Deployment with the bundle is validated, but not automated from GitHub.
+- **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities. Deployment from GitHub is defined, but it has not been executed: it needs the secrets of a service principal.
 
 Next steps: ingestion with Auto Loader, quality expectations with Lakeflow Declarative Pipelines, deployment with Databricks Asset Bundles and GitHub Actions, and SCD type 2 on customers.
 

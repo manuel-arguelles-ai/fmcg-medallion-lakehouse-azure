@@ -25,12 +25,12 @@
 ## Limitations and next steps
 
 - **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
-- **Tracking of already loaded files is by name:** it assumes the same name means the same content. It is not Auto Loader, which also handles schema evolution and large volumes.
+- **Auto Loader runs in batches** (`availableNow`), not as a continuous process, and the files stay in `landing/` without being archived. If the tables are dropped without dropping the checkpoints, nothing is loaded again: that is why the reset removes both.
 - **If the same order arrives twice in the same file with different quantities**, the larger quantity wins: across files the last one read wins, but within a file there is no arrival order. For customers and products, deduplication does not choose which row survives.
 - **The 12 products with an invalid identifier share `product_id = 999999`.** Today they have no price and no orders; if an order arrived with that identifier, the join on `product_id` would multiply it by 12.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
 - **Validation compares against fixed figures** because the data is fixed. With real data it would need relative rules (ranges, variation between loads), not equalities.
-- **Deployment is not automated:** the bundle (`databricks.yml`) is validated against a workspace, but it was not deployed and it does not run from GitHub; that requires a service principal and its secrets.
+- **Deployment from GitHub is defined, not executed:** the job was deployed with the bundle from a local machine and tested that way. The [`deploy.yml`](../.github/workflows/deploy.yml) workflow does the same from GitHub, but it needs the secrets of a service principal; without them it is skipped.
 - **Quality rules are declared in the notebook** (a dictionary of rules and `CHECK` constraints on the tables), not in a framework such as Lakeflow Declarative Pipelines, which would also keep the compliance history. Only orders have a quarantine.
 - **The price list only covers January to June 2026.** A later order would end up with a null price and revenue; validation counts them, but there is no rule for that case.
 - **The job is a linear chain**, although the four Bronze loads are independent and could run in parallel.

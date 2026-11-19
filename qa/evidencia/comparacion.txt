@@ -11,8 +11,8 @@ OK    gold.dim_customers | real: 185 | esperado: 185
 OK    gold.dim_products | real: 60 | esperado: 60
 OK    gold.dim_pricing | real: 288 | esperado: 288
 OK    gold.fact_sales | real: 4786 | esperado: 4786
-OK    cities | real: {'Sin ciudad': 15, 'Bengaluru': 48, 'New Delhi': 51, 'Hyderabad': 70} | esperado: {'New Delhi': 51, 'Bengaluru': 48, 'Sin ciudad': 15, 'Hyderabad': 70}
-OK    categories | real: {'Recovery Dairy': 12, 'Energy Bars': 9, 'Healthy Snacks': 11, 'Electrolyte Mix': 8, 'Granola & Cereals': 9, 'Protein Bars': 11} | esperado: {'Granola & Cereals': 9, 'Electrolyte Mix': 8, 'Protein Bars': 11, 'Healthy Snacks': 11, 'Energy Bars': 9, 'Recovery Dairy': 12}
+OK    cities | real: {'New Delhi': 51, 'Hyderabad': 70, 'Bengaluru': 48, 'Sin ciudad': 15} | esperado: {'New Delhi': 51, 'Bengaluru': 48, 'Sin ciudad': 15, 'Hyderabad': 70}
+OK    categories | real: {'Granola & Cereals': 9, 'Electrolyte Mix': 8, 'Protein Bars': 11, 'Energy Bars': 9, 'Healthy Snacks': 11, 'Recovery Dairy': 12} | esperado: {'Granola & Cereals': 9, 'Electrolyte Mix': 8, 'Protein Bars': 11, 'Healthy Snacks': 11, 'Energy Bars': 9, 'Recovery Dairy': 12}
 OK    products_999999 | real: 12 | esperado: 12
 OK    orders_cust_999999 | real: 230 | esperado: 230
 OK    orders_null_dates | real: 0 | esperado: 0
