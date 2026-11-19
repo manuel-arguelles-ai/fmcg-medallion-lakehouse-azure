@@ -18,10 +18,8 @@ jobs:
           python3 data/gen_data.py
           git diff --exit-code data/
       - name: El cálculo independiente reproduce las cifras esperadas
-        run: |
-          python3 qa/oraculo.py
-          git diff --exit-code qa/esperado.json
-      - name: La última ejecución del pipeline coincide en las 50 cifras
+        run: python3 qa/oraculo.py | diff - qa/esperado.json
+      - name: La salida guardada de la última ejecución coincide en las 50 cifras
         run: python3 qa/comparar.py qa/evidencia/salida_98.json
       - name: Los notebooks son Python válido y sus comentarios no alteran el código
         run: |

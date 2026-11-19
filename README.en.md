@@ -20,7 +20,7 @@ An end-to-end data pipeline for a fast-moving consumer goods (FMCG) distributor:
 **What this project demonstrates**
 
 - **An incremental load that does not duplicate:** a `MERGE` on a business key that, run twice with the same batch, inserts 0 and updates 0.
-- **Verified figures:** an independent calculation in plain Python reproduces the 50 control figures, and an automated workflow checks it on every change.
+- **Verified figures:** an independent calculation in plain Python reproduces the 50 control figures, and an automated workflow checks on every change that the calculation still gives the same result and that it matches the stored output of the latest run.
 - **Explicit rules for bad data:** each case is fixed, flagged or dropped, and the reason is written down.
 
 **To see it without running anything:** the [comparison of the 50 figures](qa/evidencia/comparacion.txt), the [record of the latest run](qa/evidencia/ejecucion_job.json) with the duration of each task, the table of [what happens to each bad record](#what-happens-to-each-bad-record) and the [latest automated check](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
@@ -60,7 +60,7 @@ flowchart LR
     G --> D["Dashboard"]
 ```
 
-The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and ends by comparing 50 figures against an independent calculation.
+The numbers on the arrows are the notebooks of each step. Everything lives in the `fmcg` Unity Catalog catalog, on ADLS Gen2; a 16-task job runs the whole chain and extracts 50 control figures, which are then compared, outside the job, against an independent calculation.
 
 Each layer answers a different question:
 
@@ -84,7 +84,7 @@ Azure Databricks with Unity Catalog, Delta Lake on ADLS Gen2, PySpark and Spark 
 | Layer | Technology | Purpose |
 |---|---|---|
 | Platform | Azure Databricks (Premium), DBR 16.4 LTS and serverless | Compute and workspace |
-| Governance | Unity Catalog: catalog, schemas, Volume, lineage | Organization, permissions and traceability |
+| Governance | Unity Catalog: catalog, schemas, Volume, lineage | Organization and traceability |
 | Storage | Delta Lake on ADLS Gen2 | Transactional tables with version history |
 | Transformation | PySpark and Spark SQL | Cleaning, business rules and modeling |
 | Incremental load | Delta `MERGE` | Insert what is new, update what changed |
@@ -191,12 +191,12 @@ The policy is not the same for every case, and each difference has a reason:
 |---|---:|---|---|
 | Order without quantity | 293 | Dropped | Without a quantity there is no sale to measure |
 | Repeated order | 48 | One is kept | Same order, date, customer, product and quantity. The file has 50; the other 2 had no quantity and were already dropped in the previous step |
-| Order with an invalid customer | 230 | Kept, with customer `999999` | The sale happened; only the buyer is unknown. The initial file has 256; the rest were dropped by another rule |
+| Order with an invalid customer | 230 | Kept, with customer `999999` | The sale happened; only the buyer is unknown. The figure is from the final table, new batch included; the initial file has 256 and part of those rows are dropped by another rule |
 | Order with an unknown product | 198 | Dropped | Without a product there is no price to compute revenue |
 | Product with a non-numeric identifier | 12 | Kept, with `product_id` `999999` | The product exists and is identified by `product_code`. All 12 share that `product_id`, so they have no price and no orders |
 | Customer without a valid city | 19 | 4 get the city confirmed by the business and 15 stay as "Sin ciudad" (no city) | No value is invented that nobody confirmed |
 
-The counts for orders without quantity, repeated orders and unknown products refer to the initial load; the invalid-customer count refers to the final table. Dropped rows are counted at each step of the notebook, but they are not stored in a quarantine table.
+The counts for orders without quantity, repeated orders and unknown products refer to the initial load and come from the counts printed by notebook `05`; the independent calculation checks the result of the chain (4,511), not each intermediate step. Dropped rows are counted at each step of the notebook, but they are not stored in a quarantine table.
 
 ## Incremental load and idempotency
 
@@ -228,7 +228,7 @@ Jobs fail halfway and get retried. A load that duplicates on retry inflates sale
 |---|---|
 | ![MERGE](docs/img/nb-merge.png) | ![Idempotency](docs/img/nb-idempotencia.png) |
 
-Every write creates a version of the table, and any of them can be queried again: `VERSION AS OF 0` returns the 4,511 rows of the initial load even after the `MERGE` and the compaction.
+Every write creates a version of the table, and it can be queried again for as long as the history is retained: `VERSION AS OF 0` returns the 4,511 rows of the initial load even after the `MERGE` and the compaction.
 
 ![Query on version 0 of fact_sales](docs/img/nb-timetravel.png)
 
@@ -285,6 +285,9 @@ The job definition is in [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medalli
 You need a Databricks workspace with Unity Catalog and permission to create a catalog named `fmcg`. Tested on Azure Databricks Premium (created with the Azure free trial), on DBR 16.4 LTS and on serverless.
 
 1. **Import** the `notebooks/` folder into your workspace. On import, Databricks drops the `.py` extension from the name.
+   ```bash
+   databricks workspace import-dir notebooks /Users/<your_user>/fmcg-medallion
+   ```
 2. **Run** `00_setup_catalog`. If your metastore does not allow `CREATE CATALOG` without a location, create the `fmcg` catalog from Catalog Explorer and run it again.
 3. **Upload the CSV files** from `data/landing/` to the Volume, keeping the folders:
    ```bash
@@ -295,7 +298,7 @@ You need a Databricks workspace with Unity Catalog and permission to create a ca
 4. **Run** `run_all`, which executes the whole pipeline in order.
 5. **Check:** run `98_validacion` and compare its output with `python3 qa/comparar.py` (see [Verification](#verification)).
 
-The notebook-by-notebook walkthrough, the compute options and how to create the job and the dashboard are in [`docs/RUNNING.md`](docs/RUNNING.md).
+Before repeating the pipeline, run `99_reset_demo`: without that step, a second full run does not give the same result. The notebook-by-notebook walkthrough, the compute options and how to create the job and the dashboard are in [`docs/RUNNING.md`](docs/RUNNING.md).
 
 ## Repository structure
 
@@ -312,11 +315,12 @@ The notebook-by-notebook walkthrough, the compute options and how to create the 
 
 ## Limitations and next steps
 
-- **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master, and the pipeline would not validate it.
+- **The data is synthetic.** It is designed to exercise every cleaning rule; it has neither the volume nor the surprises of a real system. For example, no customer with a numeric identifier is missing from the master: validation would flag it as a sale without a dimension, but the pipeline has no rule for that case. The highest price as the price in force is also a rule of this case, not a general truth.
 - **Tracking of already loaded files is manual** (moving from `landing/` to `processed/`), and Bronze infers the schema. In production: Auto Loader or `COPY INTO`, with a declared schema.
 - **If a batch brings the same order with two different quantities, the `MERGE` fails** on multiple matches: there is no "last one wins" rule. Deduplication does not choose which row survives either.
 - **The 12 products with an invalid identifier share `product_id = 999999`.** Today they have no price and no orders; if an order arrived with that identifier, the join on `product_id` would multiply it by 12.
 - **Silver and the dimensions are rebuilt in full** and keep no change history (SCD type 2). Only orders and the fact table are incremental.
+- **The job does not fail if a figure is wrong:** it extracts the figures and the comparison runs outside. The automated check on GitHub covers reproducibility and the latest stored output; it does not run the pipeline.
 - **Quality rules live in the code**, not declared as expectations the pipeline evaluates and reports. The automated workflow checks that data and figures are reproducible, but it does not deploy or run the pipeline on Databricks.
 - **Others:** natural keys without surrogate keys, amounts in `DOUBLE` instead of `DECIMAL`, `ZORDER` with no measurable effect below 5,000 rows, Change Data Feed enabled with no consumer, calendar fixed to 2026 and the catalog name written out in the SQL cells.
 
@@ -335,7 +339,7 @@ This project starts from [databricks-medallion-lakehouse-fmcg](https://github.co
 | | Verification against an independent calculation (50 figures) |
 | | 16-task job, dashboard, reset notebook and commented notebooks |
 
-It was presented at the charity workshop "Construye tu portafolio de datos End-to-End" by Datanilo Community (November 2026), built with Claude as a copilot: the assistant wrote a good part of the code, while the design decisions and the verification were human. The workshop slides (in Spanish) are in the [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck) branch.
+It was presented at the charity workshop "Construye tu portafolio de datos End-to-End" by Datanilo Community (November 2026). The workshop slides (in Spanish) are in the [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck) branch.
 
 **Manuel Argüelles** · AI Analytics Engineer · [LinkedIn](https://www.linkedin.com/in/manuel-arguelles-ai/) · [analizodatos.com](https://analizodatos.com)
 

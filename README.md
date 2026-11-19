@@ -20,7 +20,7 @@ Un pipeline de datos de punta a punta para una distribuidora de alimentos de con
 **Lo que demuestra este proyecto**
 
 - **Carga incremental que no duplica:** un `MERGE` con llave de negocio que, ejecutado dos veces con el mismo lote, inserta 0 y actualiza 0.
-- **Cifras verificadas:** un cálculo independiente en Python puro reproduce las 50 cifras de control, y un flujo automático lo comprueba en cada cambio.
+- **Cifras verificadas:** un cálculo independiente en Python puro reproduce las 50 cifras de control, y un flujo automático comprueba en cada cambio que ese cálculo sigue dando lo mismo y que coincide con la salida guardada de la última ejecución.
 - **Reglas explícitas para los datos malos:** cada caso se corrige, se marca o se descarta, y está escrito por qué.
 
 **Para verlo sin ejecutar nada:** la [comparación de las 50 cifras](qa/evidencia/comparacion.txt), el [registro de la última ejecución](qa/evidencia/ejecucion_job.json) con la duración de cada tarea, la tabla de [qué pasa con cada dato malo](#qué-pasa-con-cada-dato-malo) y la [última verificación automática](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/actions/workflows/ci.yml).
@@ -58,7 +58,7 @@ flowchart LR
     G --> D["Dashboard"]
 ```
 
-Los números sobre las flechas son los notebooks de cada paso. Todo vive en el catálogo `fmcg` de Unity Catalog, sobre ADLS Gen2; un job de 16 tareas ejecuta la cadena completa y termina comparando 50 cifras contra un cálculo independiente.
+Los números sobre las flechas son los notebooks de cada paso. Todo vive en el catálogo `fmcg` de Unity Catalog, sobre ADLS Gen2; un job de 16 tareas ejecuta la cadena completa y extrae 50 cifras de control, que después se comparan, fuera del job, contra un cálculo independiente.
 
 Cada capa responde una pregunta distinta:
 
@@ -82,7 +82,7 @@ Azure Databricks con Unity Catalog, Delta Lake sobre ADLS Gen2, PySpark y Spark 
 | Capa | Tecnología | Para qué |
 |---|---|---|
 | Plataforma | Azure Databricks (Premium), DBR 16.4 LTS y serverless | Cómputo y entorno de trabajo |
-| Gobierno | Unity Catalog: catálogo, esquemas, Volume, linaje | Organización, permisos y trazabilidad |
+| Gobierno | Unity Catalog: catálogo, esquemas, Volume, linaje | Organización y trazabilidad |
 | Almacenamiento | Delta Lake sobre ADLS Gen2 | Tablas con transacciones e historial de versiones |
 | Transformación | PySpark y Spark SQL | Limpieza, reglas de negocio y modelado |
 | Carga incremental | Delta `MERGE` | Insertar lo nuevo y actualizar lo que cambió |
@@ -189,12 +189,12 @@ La política no es la misma para todos los casos, y cada diferencia tiene un mot
 |---|---:|---|---|
 | Orden sin cantidad | 293 | Se descarta | Sin cantidad no hay venta que medir |
 | Orden repetida | 48 | Se conserva una | Misma orden, fecha, cliente, producto y cantidad. El archivo trae 50; las otras 2 no tenían cantidad y ya salieron en el paso anterior |
-| Orden con cliente inválido | 230 | Se conserva, con cliente `999999` | La venta ocurrió; solo falta saber de quién. El archivo inicial trae 256; el resto cayó por otra regla |
+| Orden con cliente inválido | 230 | Se conserva, con cliente `999999` | La venta ocurrió; solo falta saber de quién. La cifra es de la tabla final, con el lote nuevo incluido; el archivo inicial trae 256 y parte de esas filas sale por otra regla |
 | Orden con producto inexistente | 198 | Se descarta | Sin producto no hay precio para calcular el revenue |
 | Producto con identificador no numérico | 12 | Se conserva, con `product_id` `999999` | El producto existe y se identifica por `product_code`. Los 12 comparten ese `product_id`, así que no tienen precio ni órdenes |
 | Cliente sin ciudad válida | 19 | 4 reciben la ciudad que confirmó negocio y 15 quedan como «Sin ciudad» | No se inventa un dato que nadie confirmó |
 
-Las cifras de órdenes sin cantidad, repetidas y con producto inexistente corresponden a la carga inicial; la de cliente inválido, a la tabla final. Las filas descartadas se cuentan en cada paso del notebook, pero no se guardan en una tabla de cuarentena.
+Las cifras de órdenes sin cantidad, repetidas y con producto inexistente corresponden a la carga inicial y salen de los conteos que imprime el notebook `05`; el cálculo independiente comprueba el resultado de la cadena (4.511), no cada paso intermedio. Las filas descartadas se cuentan en cada paso del notebook, pero no se guardan en una tabla de cuarentena.
 
 ## Carga incremental e idempotencia
 
@@ -226,7 +226,7 @@ Los jobs fallan a medias y se reintentan. Una carga que duplica en el reintento 
 |---|---|
 | ![MERGE](docs/img/nb-merge.png) | ![Idempotencia](docs/img/nb-idempotencia.png) |
 
-Cada escritura crea una versión de la tabla, y cualquiera se puede volver a consultar: `VERSION AS OF 0` devuelve las 4.511 filas de la carga inicial aun después del `MERGE` y de la compactación.
+Cada escritura crea una versión de la tabla, y se puede volver a consultar mientras dure la retención del historial: `VERSION AS OF 0` devuelve las 4.511 filas de la carga inicial aun después del `MERGE` y de la compactación.
 
 ![Consulta de la versión 0 de fact_sales](docs/img/nb-timetravel.png)
 
@@ -283,6 +283,9 @@ La definición está en [`jobs/fmcg-medallion-pipeline.json`](jobs/fmcg-medallio
 Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un catálogo llamado `fmcg`. Probado en Azure Databricks Premium (creado con la prueba gratuita de Azure), en DBR 16.4 LTS y en serverless.
 
 1. **Importa** la carpeta `notebooks/` a tu workspace. Al importar, Databricks quita la extensión `.py` del nombre.
+   ```bash
+   databricks workspace import-dir notebooks /Users/<tu_usuario>/fmcg-medallion
+   ```
 2. **Ejecuta** `00_setup_catalog`. Si tu metastore no permite `CREATE CATALOG` sin ubicación, crea el catálogo `fmcg` desde el Explorador de catálogos y vuelve a ejecutar.
 3. **Sube los CSV** de `data/landing/` al Volume, respetando las carpetas:
    ```bash
@@ -293,7 +296,7 @@ Necesitas un workspace de Databricks con Unity Catalog y permiso para crear un c
 4. **Ejecuta** `run_all`, que corre todo el pipeline en orden.
 5. **Comprueba:** ejecuta `98_validacion` y compara su salida con `python3 qa/comparar.py` (ver [Verificación](#verificación)).
 
-El paso a paso notebook por notebook, las opciones de cómputo y cómo crear el job y el dashboard están en [`docs/EJECUCION.md`](docs/EJECUCION.md).
+Antes de repetir el pipeline hay que ejecutar `99_reset_demo`: sin ese paso, una segunda ejecución completa no da el mismo resultado. El paso a paso notebook por notebook, las opciones de cómputo y cómo crear el job y el dashboard están en [`docs/EJECUCION.md`](docs/EJECUCION.md).
 
 ## Estructura del repositorio
 
@@ -310,11 +313,12 @@ El paso a paso notebook por notebook, las opciones de cómputo y cómo crear el 
 
 ## Limitaciones y siguientes pasos
 
-- **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro, y el pipeline no lo validaría.
+- **Los datos son sintéticos.** Están diseñados para ejercitar cada regla de limpieza; no tienen el volumen ni las sorpresas de un sistema real. Por ejemplo, ningún cliente con identificador numérico falta en el maestro: la validación lo detectaría como venta sin dimensión, pero el pipeline no tiene una regla para ese caso. El precio más alto como precio vigente también es una regla del caso, no una verdad general.
 - **El control de archivos ya cargados es manual** (mover de `landing/` a `processed/`), y Bronze infiere el esquema. En producción: Auto Loader o `COPY INTO`, con esquema declarado.
 - **Si un lote trae la misma orden con dos cantidades distintas, el `MERGE` falla** por coincidencia múltiple: no hay una regla de «gana la última». Al quitar duplicados tampoco se elige qué fila sobrevive.
 - **Los 12 productos con identificador inválido comparten `product_id = 999999`.** Hoy no tienen precio ni órdenes; si llegara una orden con ese identificador, el cruce por `product_id` la multiplicaría por 12.
 - **Silver y las dimensiones se reconstruyen completas** y no guardan historial de cambios (SCD tipo 2). Solo las órdenes y la tabla de hechos son incrementales.
+- **El job no falla si una cifra sale mal:** extrae las cifras y la comparación corre fuera. La verificación automática de GitHub revisa la reproducibilidad y la última salida guardada, no ejecuta el pipeline.
 - **Las reglas de calidad están en el código**, no declaradas como expectativas que el pipeline evalúe y reporte. El flujo automático comprueba la reproducibilidad de datos y cifras, pero no despliega ni ejecuta el pipeline en Databricks.
 - **Otras:** llaves naturales sin llaves sustitutas, importes en `DOUBLE` y no en `DECIMAL`, `ZORDER` sin efecto medible con menos de 5.000 filas, Change Data Feed activado sin consumidor, calendario fijo en 2026 y nombre del catálogo escrito en las celdas SQL.
 
@@ -333,7 +337,7 @@ Este proyecto parte de [databricks-medallion-lakehouse-fmcg](https://github.com/
 | | Verificación contra un cálculo independiente (50 cifras) |
 | | Job de 16 tareas, dashboard, notebook de reset y notebooks comentados |
 
-Se presentó en el taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (noviembre de 2026), construido con Claude como copiloto: el asistente escribió buena parte del código y las decisiones de diseño y la verificación fueron humanas. Las láminas del taller están en la rama [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck).
+Se presentó en el taller solidario «Construye tu portafolio de datos End-to-End» de Datanilo Community (noviembre de 2026). Las láminas del taller están en la rama [`taller`](https://github.com/manuel-arguelles-ai/fmcg-medallion-lakehouse-azure/tree/taller/deck).
 
 **Manuel Argüelles** · AI Analytics Engineer · [LinkedIn](https://www.linkedin.com/in/manuel-arguelles-ai/) · [analizodatos.com](https://analizodatos.com)
 

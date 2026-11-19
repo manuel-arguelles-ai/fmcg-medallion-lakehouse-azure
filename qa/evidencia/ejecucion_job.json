@@ -73,5 +73,23 @@
    "estado": "SUCCESS",
    "segundos": 11
   }
- }
+ },
+ "fecha_utc": "2026-11-19 04:52",
+ "sha256_notebooks": {
+  "00_setup_catalog.py": "c1645711f062b7ce",
+  "01_bronze_load.py": "82a77ce55349e4c2",
+  "02_silver_customers.py": "13d242cb1d31eac5",
+  "03_silver_products.py": "4d8ffa136d851ff1",
+  "04_silver_pricing.py": "b320e43a5099cc6d",
+  "05_silver_orders.py": "fe4b7cce5f2d384b",
+  "06_gold_dims.py": "21841b903eb5ab07",
+  "07_gold_fact_full_load.py": "e7f00e620e7c414e",
+  "08_gold_fact_incremental.py": "e70e126861ac1676",
+  "09_optimize_and_kpis.py": "13bb5a789bf055cb",
+  "98_validacion.py": "62d32527cc3eda1e",
+  "99_reset_demo.py": "3edb71adb3189ff0",
+  "run_all.py": "8898c0a6d43dbfce",
+  "utilities.py": "38e651bff2251833"
+ },
+ "nota": "La salida de la tarea t98_validacion de esta ejecución es salida_98.json; comparacion.txt es el resultado de qa/comparar.py sobre ella."
 }
